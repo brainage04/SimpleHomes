@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "${mod_id}",
+	"version": "${mod_version}",
+	"name": "${mod_name}",
+	"description": "Adds named, persistent, shareable homes with a configurable per-player limit.",
+	"authors": ["brainage04"],
+	"contact": {
+		"homepage": "https://github.com/brainage04/SimpleHomes"
+	},
+	"license": "MIT",
+	"icon": "assets/simplehomes/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["io.github.brainage04.simplehomes.fabric.SimpleHomesFabric"]
+	},
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "${minecraft_version}",
+		"java": ">=${java_version}",
+		"fabric-api": "*"
+	}
+}

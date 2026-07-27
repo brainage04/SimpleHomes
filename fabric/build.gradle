@@ -1,0 +1,70 @@
+plugins {
+	id 'io.github.brainage04.fabric-mod-conventions' version "${fabricmoddingconventions_version}"
+	id 'io.github.brainage04.client-gametest-recorder' version "${fabricmoddingconventions_version}"
+	id 'io.github.brainage04.production-gametests' version "${fabricmoddingconventions_version}"
+	id 'io.github.brainage04.workspace-dependencies' version "${fabricmoddingconventions_version}"
+	id 'io.github.brainage04.mod-publishing' version "${fabricmoddingconventions_version}"
+}
+
+base { archivesName = rootProject.archives_base_name }
+
+sourceSets {
+	gametest {
+		java.srcDir rootProject.file('src/gametest/java')
+		resources.srcDir rootProject.file('src/gametest/resources')
+	}
+	test { java.srcDir rootProject.file('src/test/java') }
+}
+
+loom {
+	mods {
+		main {
+			sourceSet sourceSets.main
+			sourceSet project(':common').sourceSets.main
+		}
+	}
+}
+
+configurations {
+	common { canBeResolved = true; canBeConsumed = false }
+	compileClasspath.extendsFrom common
+	runtimeClasspath.extendsFrom common
+	developmentFabric.extendsFrom common
+}
+
+workspaceDependencies {
+	siblingMaven('FabricModdingConventions') {
+		coordinate.set("io.github.brainage04:fabricmoddingconventions:${project.fabricmoddingconventions_version}")
+		siblingDirectory.set(rootProject.layout.projectDirectory.dir('../FabricModdingConventions'))
+	}
+}
+
+modPublishing {
+	github.repository.set('brainage04/SimpleHomes')
+	licenseFile.set(rootProject.layout.projectDirectory.file('LICENSE'))
+	modrinth.projectBody.set(rootProject.layout.projectDirectory.file('README.md'))
+	modrinth.iconFile.set(rootProject.layout.projectDirectory.file('fabric/src/main/resources/assets/simplehomes/icon.png'))
+}
+
+productionGameTests {
+	includeServer = true
+	includeClient.set(true)
+	clientRunDir.set(clientGameTestRecorder.runDir)
+	clientUseXvfb.set(providers.environmentVariable('GTR_RECORDING_MANAGED_XVFB').map { !it.toBoolean() }.orElse(true))
+}
+
+tasks.named('recordClientGameTest') { runTaskName.set('runProductionClientGameTest') }
+tasks.named('prepareClientGameTestRun') { mustRunAfter('prepareProductionGameTestRuns') }
+tasks.matching { it.name == 'runProductionClientGameTest' }.configureEach { dependsOn('prepareClientGameTestRun') }
+
+dependencies {
+	common(project(':common')) { transitive = false }
+	testImplementation(project(':common')) { transitive = false }
+}
+
+tasks.named('jar') {
+	from project(':common').sourceSets.main.output
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+tasks.named('sourcesJar') { from project(':common').sourceSets.main.allSource }
+tasks.matching { it.name.startsWith('run') }.configureEach { dependsOn project(':common').tasks.named('jar') }

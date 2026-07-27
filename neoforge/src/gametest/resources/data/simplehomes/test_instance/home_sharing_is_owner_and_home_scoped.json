@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraft:empty",
+  "max_ticks": 20,
+  "type": "minecraft:function",
+  "function": "simplehomes:home_sharing_is_owner_and_home_scoped"
+}
