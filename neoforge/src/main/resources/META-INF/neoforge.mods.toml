@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="[11,)"
+license="MIT"
+
+[[mods]]
+modId="simplehomes"
+version="${version}"
+displayName="SimpleHomes"
+authors="brainage04"
+description='''Adds named, persistent, shareable homes with a configurable per-player limit.'''
+
+[[dependencies.simplehomes]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version},26.3)"
+ordering="NONE"
+side="BOTH"

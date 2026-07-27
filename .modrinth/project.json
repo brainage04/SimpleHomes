@@ -1,11 +1,7 @@
 {
   "categories": [
-    "library"
+    "utility"
   ],
   "additional_categories": [],
-  "dependency_overrides": {
-    "fzzy_config": {
-      "project_slug": "fzzy-config"
-    }
-  }
+  "dependency_overrides": {}
 }

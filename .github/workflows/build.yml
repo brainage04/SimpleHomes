@@ -1,4 +1,4 @@
-# Build, GameTest, and template-generation checks for every change.
+# Build and production GameTest checks for every change.
 name: build
 
 on:
@@ -11,26 +11,37 @@ on:
         required: false
         type: boolean
         default: true
+      record_client_gametests:
+        description: Record client GameTests
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   build:
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-mod-build.yml@v2.3.5
-    with:
-      # BEGIN TEMPLATE SCRIPT CHECKS
-      check_scripts: ${{ github.repository == 'brainage04/ModernMinecraftModTemplate' }}
-      # END TEMPLATE SCRIPT CHECKS
-      # BEGIN TEMPLATE SMOKE TESTS
-      run_template_smoke: ${{ github.repository == 'brainage04/ModernMinecraftModTemplate' }}
-      # END TEMPLATE SMOKE TESTS
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-mod-build.yml@v2.3.9
 
   client-gametests:
-    if: ${{ vars.RUN_CLIENT_GAMETESTS != 'false' && (github.event_name != 'workflow_dispatch' || inputs.run_client_gametests) }}
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-client-gametests.yml@v2.3.5
+    if: ${{ vars.RUN_CLIENT_GAMETESTS != 'false' && (github.event_name != 'workflow_dispatch' || inputs.run_client_gametests || inputs.record_client_gametests) }}
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-client-gametests.yml@v2.3.9
     with:
       run_client_gametests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_client_gametests }}
+      client_gametest_profile: smoke
+      record_client_gametests: ${{ github.event_name == 'workflow_dispatch' && inputs.record_client_gametests }}
 
   production-gametests:
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-production-gametests.yml@v2.3.5
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-production-gametests.yml@v2.3.9
+
+  neoforge-gametests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: microsoft
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v5
+      - run: ./gradlew --no-daemon :neoforge:runGameTestServer

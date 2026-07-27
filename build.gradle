@@ -1,49 +1,55 @@
 plugins {
-	id 'io.github.brainage04.client-gametest-recorder' version "${fabricmoddingconventions_version}"
-	id 'io.github.brainage04.production-gametests' version "${fabricmoddingconventions_version}"
-	id 'io.github.brainage04.workspace-dependencies' version "${fabricmoddingconventions_version}"
-	id 'io.github.brainage04.mod-publishing' version "${fabricmoddingconventions_version}"
+	id 'dev.architectury.loom-no-remap' version "${architectury_loom_version}" apply false
+	id 'dev.architectury.loom' version "${architectury_loom_version}" apply false
 }
 
-repositories {
-	mavenLocal()
-
-	// DevAuth
-	maven { url = "https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1" }
-
-	// ModMenu
-	maven { url "https://api.modrinth.com/maven/" }
-
-	// Fzzy Config
-	maven { url = "https://maven.fzzyhmstrs.me/" }
+allprojects {
+	group = rootProject.maven_group
+	version = rootProject.mod_version
 }
 
-workspaceDependencies {
-	siblingMaven("FabricModdingConventions") {
-		coordinate.set("io.github.brainage04:fabricmoddingconventions:${project.fabricmoddingconventions_version}")
+subprojects {
+	apply plugin: 'java'
+	base { archivesName = "${rootProject.archives_base_name}-${project.name}" }
+	repositories {
+		maven { url = 'https://maven.architectury.dev/' }
+		maven { url = 'https://maven.neoforged.net/releases/' }
+		maven { url = 'https://maven.fabricmc.net/' }
+		mavenCentral()
+	}
+	java {
+		toolchain.languageVersion = JavaLanguageVersion.of(rootProject.java_version as int)
+		withSourcesJar()
+	}
+	tasks.withType(JavaCompile).configureEach {
+		options.encoding = 'UTF-8'
+		options.release = rootProject.java_version as int
 	}
 }
 
-dependencies {
-	// DevAuth
-	runtimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
-
-	// ModMenu
-	implementation "maven.modrinth:modmenu:${project.modmenu_version}"
-
-	// Fzzy Config
-	implementation("me.fzzyhmstrs:fzzy_config:${project.fzzy_config_version}") {
-		exclude group: "com.terraformersmc", module: "modmenu"
-	}
-
-	productionRuntimeMods("me.fzzyhmstrs:fzzy_config:${project.fzzy_config_version}") {
-		exclude group: "com.terraformersmc", module: "modmenu"
-	}
-	productionRuntimeMods "maven.modrinth:modmenu:${project.modmenu_version}"
+tasks.register('runNeoForgeGameTests') {
+	group = 'verification'
+	description = 'Runs the NeoForge server GameTest suite.'
+	dependsOn ':neoforge:runGameTestServer'
+}
+tasks.register('runAllProductionGameTests') {
+	group = 'verification'
+	description = 'Runs Fabric and NeoForge production GameTests.'
+	dependsOn ':fabric:runAllProductionGameTests', ':neoforge:runGameTestServer'
 }
 
-pluginManager.withPlugin("io.github.brainage04.client-gametest-recorder") {
-	clientGameTestRecorder {
-		guiScale.set("3")
-	}
+def fabricReleaseJar = project(':fabric').tasks.named('jar', org.gradle.api.tasks.bundling.AbstractArchiveTask)
+def neoForgeReleaseJar = project(':neoforge').tasks.named('jar', org.gradle.api.tasks.bundling.AbstractArchiveTask)
+tasks.register('collectReleaseArtifacts', Sync) {
+	group = 'build'
+	dependsOn fabricReleaseJar, neoForgeReleaseJar
+	from fabricReleaseJar.flatMap { it.archiveFile }
+	from neoForgeReleaseJar.flatMap { it.archiveFile }
+	into layout.buildDirectory.dir('libs')
+}
+tasks.register('build') {
+	group = 'build'
+	description = 'Builds and tests every loader, then collects both production JARs.'
+	dependsOn subprojects.collect { it.tasks.named('build') }
+	dependsOn 'collectReleaseArtifacts'
 }
