@@ -4,7 +4,7 @@ import io.github.brainage04.fabricmoddingconventions.ClientGameTestRecorder;
 import io.github.brainage04.fabricmoddingconventions.ClientGameTestServers;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -17,9 +17,7 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		Properties serverProperties = ClientGameTestServers.flatServerProperties();
-		try (TestDedicatedServerContext server = context.worldBuilder().createServer(serverProperties)) {
-			ClientGameTestServers.connectToDedicatedServer(context, server, "SimpleHomes visual GameTest");
-			try {
+		ClientGameTestServers.withDedicatedServer(context, serverProperties, "SimpleHomes visual GameTest", server -> { try {
 				ClientGameTestServers.assertClientWorldAndPlayerAvailable(context);
 				assertCommandTree(context);
 				context.runOnClient(client -> client.setScreenAndShow(new ChatScreen("", false)));
@@ -70,9 +68,8 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
 				context.waitTicks(50);
 			} finally {
 				context.runOnClient(client -> client.setScreenAndShow(null));
-				ClientGameTestServers.disconnectFromDedicatedServer(context);
-			}
-		}
+				;
+			} });
 	}
 
 	private static void assertCommandTree(ClientGameTestContext context) {

@@ -22,26 +22,20 @@ permissions:
 
 jobs:
   build:
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-mod-build.yml@v2.3.9
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-mod-build.yml@v2.4.0
 
   client-gametests:
     if: ${{ vars.RUN_CLIENT_GAMETESTS != 'false' && (github.event_name != 'workflow_dispatch' || inputs.run_client_gametests || inputs.record_client_gametests) }}
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-client-gametests.yml@v2.3.9
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-client-gametests.yml@v2.4.0
     with:
       run_client_gametests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_client_gametests }}
       client_gametest_profile: smoke
       record_client_gametests: ${{ github.event_name == 'workflow_dispatch' && inputs.record_client_gametests }}
 
-  production-gametests:
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-production-gametests.yml@v2.3.9
+  fabric-gametests:
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-production-gametests.yml@v2.4.0
+    with:
+      gradle_task: :fabric:runAllProductionGameTests
 
   neoforge-gametests:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
-        with:
-          distribution: microsoft
-          java-version: '25'
-      - uses: gradle/actions/setup-gradle@v5
-      - run: ./gradlew --no-daemon :neoforge:runGameTestServer
+    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-neoforge-gametests.yml@v2.4.0
