@@ -8,7 +8,6 @@ base { archivesName = "${rootProject.archives_base_name}-neoforge" }
 
 sourceSets {
 	gametest {
-		java.srcDirs = [rootProject.file('src/gametest/java'), project.file('src/gametest/java')]
 		compileClasspath += sourceSets.main.output + configurations.compileClasspath
 		runtimeClasspath += output + compileClasspath + configurations.runtimeClasspath
 	}
