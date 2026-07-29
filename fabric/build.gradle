@@ -8,13 +8,6 @@ plugins {
 
 base { archivesName = rootProject.archives_base_name }
 
-sourceSets {
-	gametest {
-		java.srcDir rootProject.file('src/gametest/java')
-		resources.srcDir rootProject.file('src/gametest/resources')
-	}
-	test { java.srcDir rootProject.file('src/test/java') }
-}
 
 loom {
 	mods {
