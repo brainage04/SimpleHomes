@@ -30,7 +30,7 @@ The release workflow uses the Modrinth API directly:
 
 The workflow reads:
 
-- `src/main/resources/fabric.mod.json` for the project slug, title, fallback description, contact links, licence, and side support inference
+- `fabric/src/main/resources/fabric.mod.json` for the project slug, title, fallback description, contact links, licence, and side support inference
 - `README.md` for the long project description
 - The GitHub repository description for the Modrinth project summary
 - `.modrinth/project.json` for optional Modrinth-specific overrides
@@ -89,7 +89,7 @@ Modrinth categories are separate from loaders. Do not use `fabric` in `categorie
 
 ## Version dependencies
 
-Version dependencies are inferred from `src/main/resources/fabric.mod.json`:
+Version dependencies are inferred from `fabric/src/main/resources/fabric.mod.json`:
 
 - `depends` becomes Modrinth `required`
 - `recommends` and `suggests` become Modrinth `optional`
