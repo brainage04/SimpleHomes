@@ -99,6 +99,7 @@ public final class HomeData extends SavedData {
 	}
 
 	public int revoke(UUID owner, String name, Collection<UUID> guests) {
+		if (getHome(owner, name).isEmpty()) return -1;
 		Map<String, Set<UUID>> ownerShares = shares.get(owner);
 		if (ownerShares == null) return 0;
 		Set<UUID> allowed = ownerShares.get(name);

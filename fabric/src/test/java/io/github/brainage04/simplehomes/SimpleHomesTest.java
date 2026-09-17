@@ -64,6 +64,7 @@ class SimpleHomesTest {
 		assertFalse(data.allows(otherOwner, "base", guest));
 		assertEquals(1, data.revoke(owner, "base", List.of(guest)));
 		assertFalse(data.allows(owner, "base", guest));
+		assertEquals(-1, data.revoke(owner, "missing", List.of(guest)));
 	}
 
 	@Test
