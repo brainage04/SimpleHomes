@@ -8,8 +8,10 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.NameAndId;
 
 import java.util.Collection;
 import java.util.List;
@@ -36,7 +38,7 @@ public final class HomeCommandRegistration {
 						.suggests(HomeCommandRegistration::suggestOwnHomes)
 						.executes(HomeCommandRegistration::teleportHome)));
 		dispatcher.register(literal("homeof")
-				.then(argument("player", EntityArgument.player())
+				.then(argument("player", GameProfileArgument.gameProfile())
 						.then(argument("name", StringArgumentType.word())
 								.executes(HomeCommandRegistration::teleportOtherHome))));
 		dispatcher.register(literal("sharehome")
@@ -86,20 +88,25 @@ public final class HomeCommandRegistration {
 
 	private static int teleportOtherHome(CommandContext<CommandSourceStack> context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
 		ServerPlayer guest = context.getSource().getPlayerOrException();
-		ServerPlayer owner = EntityArgument.getPlayer(context, "player");
+		Collection<NameAndId> owners = GameProfileArgument.getGameProfiles(context, "player");
+		if (owners.size() != 1) {
+			guest.sendSystemMessage(Component.literal("Select exactly one home owner."));
+			return 0;
+		}
+		NameAndId owner = owners.iterator().next();
 		String name = normalizedName(context, guest);
 		if (name == null) return 0;
 		HomeData data = HomeData.get(context.getSource().getServer());
-		HomeLocation home = data.getHome(owner.getUUID(), name).orElse(null);
+		HomeLocation home = data.getHome(owner.id(), name).orElse(null);
 		if (home == null) {
-			guest.sendSystemMessage(Component.literal(owner.getScoreboardName() + " does not have a home named '" + name + "'."));
+			guest.sendSystemMessage(Component.literal(owner.name() + " does not have a home named '" + name + "'."));
 			return 0;
 		}
-		if (!data.allows(owner.getUUID(), name, guest.getUUID())) {
-			guest.sendSystemMessage(Component.literal(owner.getScoreboardName() + " has not shared home '" + name + "' with you."));
+		if (!data.allows(owner.id(), name, guest.getUUID())) {
+			guest.sendSystemMessage(Component.literal(owner.name() + " has not shared home '" + name + "' with you."));
 			return 0;
 		}
-		return HomeTeleportService.teleport(guest, home, owner.getScoreboardName() + "'s home '" + name + "'");
+		return HomeTeleportService.teleport(guest, home, owner.name() + "'s home '" + name + "'");
 	}
 
 	private static int changeAccess(CommandContext<CommandSourceStack> context, boolean grant) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
