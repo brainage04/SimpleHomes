@@ -6,6 +6,7 @@ license="MIT"
 modId="simplehomes"
 version="${version}"
 displayName="SimpleHomes"
+logoFile="assets/simplehomes/icon.png"
 authors="brainage04"
 description='''Adds named, persistent, shareable homes with a configurable per-player limit.'''
 
