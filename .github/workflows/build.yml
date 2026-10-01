@@ -32,10 +32,5 @@ jobs:
       client_gametest_profile: smoke
       record_client_gametests: ${{ github.event_name == 'workflow_dispatch' && inputs.record_client_gametests }}
 
-  fabric-gametests:
+  production-gametests:
     uses: brainage04/FabricModdingConventions/.github/workflows/reusable-production-gametests.yml@v2.4.15
-    with:
-      gradle_task: :fabric:runAllProductionGameTests
-
-  neoforge-gametests:
-    uses: brainage04/FabricModdingConventions/.github/workflows/reusable-neoforge-gametests.yml@v2.4.15

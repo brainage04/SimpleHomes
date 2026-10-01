@@ -1,6 +1,7 @@
 modLoader="javafml"
 loaderVersion="[11,)"
 license="MIT"
+issueTrackerURL="https://github.com/brainage04/SimpleHomes/issues"
 
 [[mods]]
 modId="simplehomes"
@@ -9,6 +10,7 @@ displayName="SimpleHomes"
 iconFile="assets/simplehomes/icon.png"
 authors="brainage04"
 description='''Adds named, persistent, shareable homes with a configurable per-player limit.'''
+displayURL="https://github.com/brainage04/SimpleHomes"
 
 [[dependencies.simplehomes]]
 modId="minecraft"

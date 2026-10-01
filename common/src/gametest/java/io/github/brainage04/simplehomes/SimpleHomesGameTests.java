@@ -1,16 +1,21 @@
-package io.github.brainage04.simplehomes.neoforge;
+package io.github.brainage04.simplehomes;
 
-import io.github.brainage04.simplehomes.HomeData;
-import io.github.brainage04.simplehomes.HomeLocation;
-import io.github.brainage04.simplehomes.HomeTeleportService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
 
-public final class SimpleHomesNeoForgeGameTests {
-	public void allHomeCommandsAreRegistered(GameTestHelper helper) {
+/**
+ * Loader-neutral server GameTest bodies. Both loaders compile this source set into their GameTest
+ * mods: Fabric runs them through {@code @GameTest} methods, NeoForge through registered test
+ * functions and {@code test_instance} data.
+ */
+public final class SimpleHomesGameTests {
+	private SimpleHomesGameTests() {
+	}
+
+	public static void allHomeCommandsAreRegistered(GameTestHelper helper) {
 		var root = helper.getLevel().getServer().getCommands().getDispatcher().getRoot();
 		for (String command : List.of("sethome", "home", "homeof", "sharehome")) {
 			if (root.getChild(command) == null) throw new AssertionError("Expected /" + command + " to be registered");
@@ -18,7 +23,7 @@ public final class SimpleHomesNeoForgeGameTests {
 		helper.succeed();
 	}
 
-	public void namedHomesRespectLimitsAndTeleport(GameTestHelper helper) {
+	public static void namedHomesRespectLimitsAndTeleport(GameTestHelper helper) {
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
 		HomeData data = HomeData.get(helper.getLevel().getServer());
 		BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -35,7 +40,7 @@ public final class SimpleHomesNeoForgeGameTests {
 		helper.succeed();
 	}
 
-	public void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
+	public static void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
 		ServerPlayer owner = helper.makeMockServerPlayerInLevel();
 		ServerPlayer guest = helper.makeMockServerPlayerInLevel();
 		HomeData data = HomeData.get(helper.getLevel().getServer());

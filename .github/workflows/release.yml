@@ -18,6 +18,7 @@ jobs:
       release_name: ${{ format('SimpleHomes {0}', github.ref_name) }}
       modrinth_project_id: ${{ vars.MODRINTH_PROJECT_ID }}
       curseforge_project_id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      curseforge_project_slug: simplehomes
     secrets:
       release_token: ${{ secrets.GITHUB_TOKEN }}
       modrinth_token: ${{ secrets.MODRINTH_TOKEN }}

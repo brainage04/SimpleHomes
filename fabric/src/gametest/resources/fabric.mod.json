@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "${mod_id}-gametest",
 	"version": "${mod_version}",
-	"name": "${mod_name} GameTests",
+	"name": "${mod_name} Game Tests",
 	"icon": "assets/simplehomes/icon.png",
 	"environment": "*",
 	"entrypoints": {
