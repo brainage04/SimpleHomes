@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "minecraft:empty",
+  "structure":"fabricmoddingconventions:empty",
   "max_ticks": 20,
   "type": "minecraft:function",
   "function": "simplehomes:all_home_commands_are_registered"
