@@ -13,8 +13,15 @@ description='''Adds named, persistent, shareable homes with a configurable per-p
 displayURL="https://github.com/brainage04/SimpleHomes"
 
 [[dependencies.simplehomes]]
+modId="neoforge"
+type="required"
+versionRange="[${neoforge_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.simplehomes]]
 modId="minecraft"
 type="required"
-versionRange="[${minecraft_version},26.3)"
+versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"

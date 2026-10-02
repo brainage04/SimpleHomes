@@ -2,11 +2,15 @@
 
 ## What this is
 
-The mod's icon: `icon.png` — 340x340 RGB PNG, 2 187 bytes,
-sha256 `9f7e449e2a02e084db179ff16cb9a733f35da1639321b58087c8e4005ae5aa35`.
+The mod's icon: `icon.png` — 512x512 RGBA PNG, 3 458 bytes,
+sha256 `fb3476a01d78cc2e736a4f2815c18fdfff7063965bb9c17ff9a72b46ee7740d3`.
 
-It is a real in-game screenshot of the mod's `/home` tab-completion, cropped to a square at
-native GUI scale 4. No resize, no resampling, no interpolation, no compositing, no padding.
+It is a real in-game screenshot of the mod's `/home` tab-completion: a 340x340 square crop
+captured at GUI scale 4, reduced to its native 85x85 GUI pixels, enlarged 6x with NEAREST to
+510x510 and centred on a transparent 512x512 canvas (1 px margin). No interpolation, no
+compositing. The mod ships 128x128 LANCZOS reductions of `icon.png` at
+`common/src/main/resources/assets/simplehomes/icon.png` and
+`fabric/src/gametest/resources/assets/simplehomes/icon.png`.
 
 ## How it was made
 
@@ -29,11 +33,19 @@ native GUI scale 4. No resize, no resampling, no interpolation, no compositing, 
 The three homes `base`, `mine` and `village` existed in that world, so the client draws its
 native completion `/home base` in the input line plus the three completion entries above it.
 
-The delivered image is the exact integer crop `(0, 1820, 340, 2160)` of
-`frames/simplehomes-home-wide-full.png`. Verified while creating this provenance: cropping the
-shipped frame to that box reproduces `icon.png` byte for byte.
+The capture crop is the exact integer crop `(0, 1820, 340, 2160)` of
+`frames/simplehomes-home-wide-full.png` (340x340 RGB, sha256 `9f7e449e…`; until 2026-10-02 it
+was shipped as `icon.png` itself). Verified while creating this provenance: cropping the
+shipped frame to that box reproduces that crop byte for byte.
 
-Layout inside the delivered image (all measured, native pixels): the completion panel occupies
+**Native-scale enlargement (2026-10-02).** The icon rule is square, a power of two, 512 or
+1024 px. The crop is pixel art: 11 colours, and every 4x4 block (GUI scale 4, aligned with the
+crop) is a single colour. `native_scale.py` takes each block's colour to recover the native
+85x85 image, enlarges it by the largest integer factor that fits 512 (6x, 510x510) with
+NEAREST, and centres it on a transparent 512x512 canvas. A LANCZOS 340→512 resize was
+rejected because it blurs every GUI pixel edge.
+
+Layout inside the capture crop (all measured, crop pixels): the completion panel occupies
 `x 148..279, y 136..279` (132x144 px, three 48 px rows); the panel's own dark background is
 included in the crop, so the sky margins are 148 px left and 60 px right of the panel. The
 native chat input line below the panel is included; its full-width background bar runs to the
@@ -45,6 +57,7 @@ right edge of the crop, exactly as in the source frame.
 |---|---|
 | `manifest.json` | Round-3 delivery record for the three crops2 icons, including this one's `fixedFrom` note and measured panel box |
 | `frames/simplehomes-home-wide-full.png` | **The native 5120x2160 F2 screenshot this icon is cropped from** |
+| `native_scale.py` | **The script that writes `icon.png`** from the frame and crop box (native 85x85 recovery, 6x NEAREST, centred on 512x512) and the two shipped 128x128 copies |
 | `crop.py` | **The script that writes the three 340x340 crops** (`make_crop`; for SimpleHomes the delivered box is the bottom-left anchored one, see Notes) |
 | `capture_scene.py` | The capture driver: scene verification, chat clearing, typing, F2, screenshot copy |
 | `prepare.py` | Builds this session's runtime from the BrainageHUD capture world (world, configs, options, argfile, launcher) |
@@ -81,7 +94,7 @@ python3 crop.py && python3 verify.py                   # 340x340 crops + verific
 ```
 
 For this icon specifically, `crop.py`'s `make_crop("simplehomes", …)` reproduces the input to
-`frames/`; the delivered file is the bottom-left anchored crop of that frame (Notes):
+`frames/`; the capture crop is the bottom-left anchored crop of that frame (Notes):
 
 ```sh
 python3 - <<'PY'
@@ -89,6 +102,12 @@ from PIL import Image
 Image.open('frames/simplehomes-home-wide-full.png').convert('RGB') \
      .crop((0, 1820, 340, 2160)).save('simplehomes-autocomplete-square.png')
 PY
+```
+
+Then write `icon.png` and the shipped copies (Pillow 12.3.0, from `docs/icon/provenance`):
+
+```sh
+python3 native_scale.py    # prints: native (85, 85), 0 tied blocks, x6 -> (510, 510) centred on 512x512
 ```
 
 Prerequisites not shipped: the Minecraft 26.2 client, Fabric Loader and the mod jars named in
@@ -101,10 +120,10 @@ session's world, which is not part of this provenance.
   file.** Both record the first attempt: box `[44, 1764, 384, 2104]`, equal 104/104 px sky
   margins, output sha256 `c16a24fc…`. That framing clipped the native input command text at
   `x` 16, so the image was re-cropped anchored to the bottom-left of the frame — box
-  `[0, 1820, 340, 2160]`, sha256 `9f7e449e…`, which is what is delivered and what
+  `[0, 1820, 340, 2160]`, sha256 `9f7e449e…`, which is the capture crop `icon.png` is made from and what
   `manifest.json` records (with `fixedFrom: evidence/simplehomes-autocomplete-square-previous.png`).
   The superseded PNG itself is **not** copied into this provenance.
-* Consequence of that re-crop: the sky margins of the delivered image are 148 px left and
+* Consequence of that re-crop: the sky margins of the capture crop are 148 px left and
   60 px right of the panel — *not* equal. The three completion entries and the typed input
   line are complete and unclipped, which was the deciding requirement.
 * The SimpleHomes completion list is drawn at the caret after the typed `/home `, so its panel
