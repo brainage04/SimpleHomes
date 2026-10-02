@@ -43,7 +43,7 @@ Build both loader artifacts:
 Run command registration, limits, teleport, and access-control GameTests on both loaders:
 
 ```shell
-./gradlew runAllProductionGameTests
+./gradlew runAllGameTests
 ```
 
 The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [FabricModdingConventions](https://github.com/brainage04/FabricModdingConventions) for shared build, GameTest, recording, and publishing conventions.
