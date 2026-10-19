@@ -44,4 +44,3 @@ No known incompatibilities.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) - build and GameTest commands.
 - [docs/RELEASE.md](docs/RELEASE.md) - release automation.
 - [docs/MODRINTH.md](docs/MODRINTH.md) - optional Modrinth publishing.
-- [docs/TESTING.md](docs/TESTING.md) - test review and coverage.
