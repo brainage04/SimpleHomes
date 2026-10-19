@@ -25,6 +25,12 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
 
 				runCommand(context, "sethome base");
 				context.waitTicks(20);
+				server.runOnServer(minecraftServer -> {
+					ServerPlayer player = minecraftServer.getPlayerList().getPlayers().getFirst();
+					if (HomeData.get(minecraftServer).getHome(player.getUUID(), "base").isEmpty()) {
+						throw new AssertionError("The client command must create a persisted home.");
+					}
+				});
 				ClientGameTestRecorder.showStep(
 						context,
 						"simplehomes.create",
@@ -49,6 +55,13 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
 				context.waitTicks(20);
 				runCommand(context, "home base");
 				context.waitTicks(20);
+				server.runOnServer(minecraftServer -> {
+					ServerPlayer player = minecraftServer.getPlayerList().getPlayers().getFirst();
+					HomeLocation home = HomeData.get(minecraftServer).getHome(player.getUUID(), "base").orElseThrow();
+					if (player.level().dimension().identifier().equals(home.dimension())
+							&& player.blockPosition().equals(home.position())) return;
+					throw new AssertionError("The client /home command must restore the saved dimension and block position.");
+				});
 				ClientGameTestRecorder.showStep(
 						context,
 						"simplehomes.teleport",

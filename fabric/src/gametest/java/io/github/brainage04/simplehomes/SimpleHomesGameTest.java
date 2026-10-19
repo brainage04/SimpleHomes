@@ -18,4 +18,19 @@ public final class SimpleHomesGameTest {
 	public void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
 		SimpleHomesGameTests.homeSharingIsOwnerAndHomeScoped(helper);
 	}
+
+	@GameTest
+	public void commandsNormalizeNamesAndEnforceLimits(GameTestHelper helper) {
+		SimpleHomesGameTests.commandsNormalizeNamesAndEnforceLimits(helper);
+	}
+
+	@GameTest
+	public void sharingCommandsEnforceAndRevokeAccess(GameTestHelper helper) {
+		SimpleHomesGameTests.sharingCommandsEnforceAndRevokeAccess(helper);
+	}
+
+	@GameTest
+	public void teleportsAcrossDimensionsAndRejectsMissingDimensions(GameTestHelper helper) {
+		SimpleHomesGameTests.teleportsAcrossDimensionsAndRejectsMissingDimensions(helper);
+	}
 }

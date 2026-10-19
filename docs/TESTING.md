@@ -29,3 +29,15 @@ Client GameTest:
 - `SimpleHomesClientGameTest.runTest`: keep. Exercises the connected client command tree and teleport flow.
 
 No tautological test was removed. The loader entrypoint methods delegate to the shared bodies and are not separate behavioral tests.
+
+## Coverage gaps addressed
+
+Previously untested behavior included command name validation and case folding, command-level limits, sharing and revocation through the dispatcher, serialized homes and shares, invalid configuration, cross-dimension rotation restoration, unavailable dimensions, and the result of client-issued commands.
+
+- Unit tests now round-trip the production saved-data codec, preserve owner/home access boundaries, retain shares when updating, remove revoked shares, count duplicate/self grants correctly, and verify dirty-state changes.
+- Invalid config cases check fallback from a previously loaded value without overwriting the bad file; configuration tests restore the default afterward.
+- Shared GameTests execute the real commands for creation, invalid names, limits, updates, guest denial, grant, duplicate grant, per-home isolation, revocation and owner access. Temporary online-player registrations are removed in `finally`.
+- A shared teleport test checks Nether position and rotation and the no-movement result for an unavailable dimension.
+- The client scenario now asserts that `/sethome` creates data and `/home` restores the saved location, rather than relying only on recording captions.
+
+There are no gamerules or mod-specific rendering hooks. Both loader startup paths and production jars are exercised by the conventions suites. Still not automated: client-visible chat styling, offline-profile lookup with a real authentication service, and stopping/restarting a server process with the same world directory. The codec round-trip covers the mod-owned persistence logic, not vanilla's disk storage implementation.
