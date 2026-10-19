@@ -112,7 +112,7 @@ public final class SimpleHomesGameTests {
 			helper.assertTrue(execute(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0, "Guests cannot share another owner's home");
 			helper.assertTrue(execute(helper, owner, "sharehome revoke base " + guestSelector) == 1, "Revocation must remove access");
 			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
-			helper.assertTrue(execute(helper, owner, "homeof @s base") == 1, "Owners must retain access");
+			helper.assertTrue(execute(helper, owner, "homeof @a[tag=" + tag + "] base") == 1, "Owners must retain access");
 			helper.assertTrue(execute(helper, owner, "sethome revoke") == 1, "'revoke' must remain a valid home name");
 			helper.assertTrue(execute(helper, owner, "sharehome revoke " + guestSelector) == 1, "A home named 'revoke' must be shareable");
 			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1, "The guest must reach the home named 'revoke'");
@@ -163,7 +163,7 @@ public final class SimpleHomesGameTests {
 		try {
 			return server.getCommands().getDispatcher().execute(command, server.createCommandSourceStack().withEntity(player));
 		} catch (CommandSyntaxException exception) {
-			throw new AssertionError("Could not execute /" + command, exception);
+			throw new IllegalStateException("Could not execute /" + command, exception);
 		}
 	}
 }
