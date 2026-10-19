@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure":"fabricmoddingconventions:empty",
+  "structure":"minecraftmodconventions:empty",
   "max_ticks": 20,
   "type": "minecraft:function",
   "function": "simplehomes:home_sharing_is_owner_and_home_scoped"

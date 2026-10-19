@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "fabricmoddingconventions:empty",
+  "structure": "minecraftmodconventions:empty",
   "max_ticks": 20,
   "type": "minecraft:function",
   "function": "simplehomes:rejected_teleport_does_not_report_success"

@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "fabricmoddingconventions:empty",
+  "structure": "minecraftmodconventions:empty",
   "max_ticks": 20,
   "type": "minecraft:function",
   "function": "simplehomes:commands_normalize_names_and_enforce_limits"
