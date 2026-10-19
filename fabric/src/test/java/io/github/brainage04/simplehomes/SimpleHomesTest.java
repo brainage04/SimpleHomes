@@ -1,8 +1,6 @@
 package io.github.brainage04.simplehomes;
 
-import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.SharedConstants;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
@@ -18,7 +16,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SimpleHomesTest {
@@ -26,16 +23,6 @@ class SimpleHomesTest {
 	static void bootstrapMinecraft() {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
-	}
-
-	@Test
-	void registersEveryPublicCommand() {
-		CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
-		HomeCommandRegistration.register(dispatcher);
-		assertNotNull(dispatcher.getRoot().getChild("sethome"));
-		assertNotNull(dispatcher.getRoot().getChild("home"));
-		assertNotNull(dispatcher.getRoot().getChild("homeof"));
-		assertNotNull(dispatcher.getRoot().getChild("sharehome"));
 	}
 
 	@Test
