@@ -70,18 +70,18 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
 				);
 				context.waitTicks(50);
 
-				runCommand(context, "sharehome base @s");
+				String playerName = context.computeOnClient(client -> client.player.getName().getString());
+				runCommand(context, "sharehome base " + playerName);
 				context.waitTicks(20);
 				ClientGameTestRecorder.showStep(
 						context,
 						"simplehomes.sharing",
-						"Per-home access control",
-						"/sharehome grants explicit access to one named home for use through /homeof"
+						"Owner access unchanged",
+						"Sharing a home with yourself leaves your existing owner access unchanged"
 				);
 				context.waitTicks(50);
 			} finally {
 				context.runOnClient(client -> client.setScreenAndShow(null));
-				;
 			} });
 	}
 

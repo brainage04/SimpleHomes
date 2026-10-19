@@ -97,33 +97,31 @@ public final class SimpleHomesGameTests {
 		var players = helper.getLevel().getServer().getPlayerList();
 		String tag = "simplehomes_" + owner.getUUID();
 		owner.addTag(tag);
-		// Entity arguments resolve online players through the live player list.
-		players.getPlayers().addAll(List.of(owner, guest));
-		players.getPlayersByUUID().put(owner.getUUID(), owner);
-		players.getPlayersByUUID().put(guest.getUUID(), guest);
+		String guestTag = "simplehomes_" + guest.getUUID();
+		guest.addTag(guestTag);
+		String guestSelector = "@a[tag=" + guestTag + "]";
 		try {
 			execute(helper, owner, "sethome base");
 			execute(helper, owner, "sethome mine");
 			String sharedHome = "homeof @a[tag=" + tag + "] base";
 			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "An uninvited guest must be denied");
-			helper.assertTrue(execute(helper, owner, "sharehome base " + guest.getUUID()) == 1, "Sharing must grant access");
-			helper.assertTrue(execute(helper, owner, "sharehome base " + guest.getUUID()) == 0, "Duplicate sharing must not count twice");
+			helper.assertTrue(execute(helper, owner, "sharehome base " + guestSelector) == 1, "Sharing must grant access");
+			helper.assertTrue(execute(helper, owner, "sharehome base " + guestSelector) == 0, "Duplicate sharing must not count twice");
 			helper.assertTrue(execute(helper, guest, sharedHome) == 1, "A shared home must be usable");
 			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] mine") == 0, "Other homes must stay private");
-			helper.assertTrue(execute(helper, guest, "sharehome base " + owner.getUUID()) == 0, "Guests cannot share another owner's home");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke base " + guest.getUUID()) == 1, "Revocation must remove access");
+			helper.assertTrue(execute(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0, "Guests cannot share another owner's home");
+			helper.assertTrue(execute(helper, owner, "sharehome revoke base " + guestSelector) == 1, "Revocation must remove access");
 			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
 			helper.assertTrue(execute(helper, owner, "homeof @s base") == 1, "Owners must retain access");
 			helper.assertTrue(execute(helper, owner, "sethome revoke") == 1, "'revoke' must remain a valid home name");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke " + guest.getUUID()) == 1, "A home named 'revoke' must be shareable");
+			helper.assertTrue(execute(helper, owner, "sharehome revoke " + guestSelector) == 1, "A home named 'revoke' must be shareable");
 			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1, "The guest must reach the home named 'revoke'");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke revoke " + guest.getUUID()) == 1, "Access to a home named 'revoke' must be revocable");
+			helper.assertTrue(execute(helper, owner, "sharehome revoke revoke " + guestSelector) == 1, "Access to a home named 'revoke' must be revocable");
 			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0, "Revocation must apply to the home named 'revoke'");
 			helper.succeed();
 		} finally {
-			players.getPlayers().removeAll(List.of(owner, guest));
-			players.getPlayersByUUID().remove(owner.getUUID());
-			players.getPlayersByUUID().remove(guest.getUUID());
+			players.remove(owner);
+			players.remove(guest);
 		}
 	}
 
