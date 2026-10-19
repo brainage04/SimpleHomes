@@ -19,7 +19,7 @@ public final class HomeTeleportService {
 			player.sendSystemMessage(Component.literal("The dimension for " + label + " is unavailable."));
 			return 0;
 		}
-		player.teleportTo(
+		boolean teleported = player.teleportTo(
 				level,
 				home.position().getX() + 0.5D,
 				home.position().getY(),
@@ -29,6 +29,10 @@ public final class HomeTeleportService {
 				home.pitch(),
 				false
 		);
+		if (!teleported) {
+			player.sendSystemMessage(Component.literal("Could not teleport to " + label + "."));
+			return 0;
+		}
 		player.sendSystemMessage(Component.literal("Teleported to " + label + "."));
 		return 1;
 	}

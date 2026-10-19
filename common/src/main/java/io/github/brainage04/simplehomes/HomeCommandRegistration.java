@@ -43,19 +43,21 @@ public final class HomeCommandRegistration {
 								.executes(HomeCommandRegistration::teleportOtherHome))));
 		dispatcher.register(literal("sharehome")
 				.then(literal("revoke")
+						.then(argument("players", EntityArgument.players())
+								.executes(context -> changeAccess(context, true, "revoke")))
 						.then(argument("name", StringArgumentType.word())
 								.suggests(HomeCommandRegistration::suggestOwnHomes)
 								.then(argument("players", EntityArgument.players())
-										.executes(context -> changeAccess(context, false)))))
+										.executes(context -> changeAccess(context, false, StringArgumentType.getString(context, "name"))))))
 				.then(argument("name", StringArgumentType.word())
 						.suggests(HomeCommandRegistration::suggestOwnHomes)
 						.then(argument("players", EntityArgument.players())
-								.executes(context -> changeAccess(context, true)))));
+								.executes(context -> changeAccess(context, true, StringArgumentType.getString(context, "name"))))));
 	}
 
 	private static int setHome(CommandContext<CommandSourceStack> context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
 		ServerPlayer player = context.getSource().getPlayerOrException();
-		String name = normalizedName(context, player);
+		String name = normalizedName(StringArgumentType.getString(context, "name"), player);
 		if (name == null) return 0;
 		HomeData.SetResult result = HomeData.get(context.getSource().getServer()).setHome(
 				player.getUUID(),
@@ -76,7 +78,7 @@ public final class HomeCommandRegistration {
 
 	private static int teleportHome(CommandContext<CommandSourceStack> context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
 		ServerPlayer player = context.getSource().getPlayerOrException();
-		String name = normalizedName(context, player);
+		String name = normalizedName(StringArgumentType.getString(context, "name"), player);
 		if (name == null) return 0;
 		HomeLocation home = HomeData.get(context.getSource().getServer()).getHome(player.getUUID(), name).orElse(null);
 		if (home == null) {
@@ -94,7 +96,7 @@ public final class HomeCommandRegistration {
 			return 0;
 		}
 		NameAndId owner = owners.iterator().next();
-		String name = normalizedName(context, guest);
+		String name = normalizedName(StringArgumentType.getString(context, "name"), guest);
 		if (name == null) return 0;
 		HomeData data = HomeData.get(context.getSource().getServer());
 		HomeLocation home = data.getHome(owner.id(), name).orElse(null);
@@ -109,9 +111,9 @@ public final class HomeCommandRegistration {
 		return HomeTeleportService.teleport(guest, home, owner.name() + "'s home '" + name + "'");
 	}
 
-	private static int changeAccess(CommandContext<CommandSourceStack> context, boolean grant) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+	private static int changeAccess(CommandContext<CommandSourceStack> context, boolean grant, String rawName) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
 		ServerPlayer owner = context.getSource().getPlayerOrException();
-		String name = normalizedName(context, owner);
+		String name = normalizedName(rawName, owner);
 		if (name == null) return 0;
 		Collection<ServerPlayer> players = EntityArgument.getPlayers(context, "players");
 		List<UUID> guests = players.stream().map(ServerPlayer::getUUID).toList();
@@ -137,8 +139,8 @@ public final class HomeCommandRegistration {
 		);
 	}
 
-	private static String normalizedName(CommandContext<CommandSourceStack> context, ServerPlayer player) {
-		String name = StringArgumentType.getString(context, "name").toLowerCase(Locale.ROOT);
+	private static String normalizedName(String rawName, ServerPlayer player) {
+		String name = rawName.toLowerCase(Locale.ROOT);
 		if (VALID_NAME.matcher(name).matches()) return name;
 		player.sendSystemMessage(Component.literal("Home names must be 1-32 characters using letters, numbers, underscores, or hyphens."));
 		return null;

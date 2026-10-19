@@ -32,7 +32,7 @@ public final class SimpleHomesConfig {
 				return;
 			}
 			JsonObject root = JsonParser.parseString(Files.readString(configPath)).getAsJsonObject();
-			int configured = root.get("maximumHomes").getAsInt();
+			int configured = root.get("maximumHomes").getAsBigDecimal().intValueExact();
 			if (configured < 1) {
 				throw new IllegalArgumentException("maximumHomes must be at least 1");
 			}

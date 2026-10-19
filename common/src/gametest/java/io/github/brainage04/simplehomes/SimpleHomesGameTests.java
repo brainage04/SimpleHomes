@@ -114,6 +114,11 @@ public final class SimpleHomesGameTests {
 			helper.assertTrue(execute(helper, owner, "sharehome revoke base " + guest.getUUID()) == 1, "Revocation must remove access");
 			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
 			helper.assertTrue(execute(helper, owner, "homeof @s base") == 1, "Owners must retain access");
+			helper.assertTrue(execute(helper, owner, "sethome revoke") == 1, "'revoke' must remain a valid home name");
+			helper.assertTrue(execute(helper, owner, "sharehome revoke " + guest.getUUID()) == 1, "A home named 'revoke' must be shareable");
+			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1, "The guest must reach the home named 'revoke'");
+			helper.assertTrue(execute(helper, owner, "sharehome revoke revoke " + guest.getUUID()) == 1, "Access to a home named 'revoke' must be revocable");
+			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0, "Revocation must apply to the home named 'revoke'");
 			helper.succeed();
 		} finally {
 			players.getPlayers().removeAll(List.of(owner, guest));
@@ -142,6 +147,17 @@ public final class SimpleHomesGameTests {
 		} finally {
 			player.teleportTo(helper.getLevel(), 0.5D, 80.0D, 0.5D, Set.of(), 0.0F, 0.0F, false);
 		}
+	}
+
+	public static void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		var before = player.position();
+		player.discard();
+		HomeLocation home = new HomeLocation(helper.getLevel().dimension().identifier(), helper.absolutePos(new BlockPos(2, 2, 2)), 0.0F, 0.0F);
+		helper.assertTrue(HomeTeleportService.teleport(player, home, "test home") == 0,
+				"A teleport rejected by Minecraft must not return success");
+		helper.assertTrue(player.position().equals(before), "A rejected teleport must not move the player");
+		helper.succeed();
 	}
 
 	private static int execute(GameTestHelper helper, ServerPlayer player, String command) {

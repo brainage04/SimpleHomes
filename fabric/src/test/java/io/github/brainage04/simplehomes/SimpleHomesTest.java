@@ -87,6 +87,18 @@ class SimpleHomesTest {
 		}
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"1.5", "4294967297", "2147483648", "1e100"})
+	void fractionalAndOverflowingLimitsUseTheDefault(String number, @TempDir Path directory) throws IOException {
+		try {
+			Files.writeString(directory.resolve("simplehomes.json"), "{\"maximumHomes\":" + number + "}");
+			SimpleHomesConfig.load(directory);
+			assertEquals(10, SimpleHomesConfig.maximumHomes());
+		} finally {
+			SimpleHomesConfig.load(directory.resolve("reset"));
+		}
+	}
+
 	@Test
 	void homesAndPerHomeSharesSurviveSerialization() {
 		HomeData data = new HomeData();

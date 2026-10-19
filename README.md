@@ -33,7 +33,7 @@ The first launch creates `config/simplehomes.json`:
 }
 ```
 
-`maximumHomes` must be at least 1. Updating an existing home remains possible when a player has reached the limit.
+`maximumHomes` must be a whole number from 1 to 2147483647. Updating an existing home remains possible when a player has reached the limit. Restart the server after changing the file.
 
 ## Compatibility
 

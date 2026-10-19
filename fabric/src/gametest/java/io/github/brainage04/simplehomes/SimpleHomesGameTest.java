@@ -33,4 +33,9 @@ public final class SimpleHomesGameTest {
 	public void teleportsAcrossDimensionsAndRejectsMissingDimensions(GameTestHelper helper) {
 		SimpleHomesGameTests.teleportsAcrossDimensionsAndRejectsMissingDimensions(helper);
 	}
+
+	@GameTest
+	public void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
+		SimpleHomesGameTests.rejectedTeleportDoesNotReportSuccess(helper);
+	}
 }

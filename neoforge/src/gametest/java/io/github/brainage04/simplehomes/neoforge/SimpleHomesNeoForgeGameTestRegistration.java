@@ -20,6 +20,7 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
 		register(event, "commands_normalize_names_and_enforce_limits", SimpleHomesGameTests::commandsNormalizeNamesAndEnforceLimits);
 		register(event, "sharing_commands_enforce_and_revoke_access", SimpleHomesGameTests::sharingCommandsEnforceAndRevokeAccess);
 		register(event, "teleports_across_dimensions_and_rejects_missing_dimensions", SimpleHomesGameTests::teleportsAcrossDimensionsAndRejectsMissingDimensions);
+		register(event, "rejected_teleport_does_not_report_success", SimpleHomesGameTests::rejectedTeleportDoesNotReportSuccess);
 	}
 
 	private static void register(

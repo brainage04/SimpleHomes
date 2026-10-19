@@ -41,3 +41,11 @@ Previously untested behavior included command name validation and case folding, 
 - The client scenario now asserts that `/sethome` creates data and `/home` restores the saved location, rather than relying only on recording captions.
 
 There are no gamerules or mod-specific rendering hooks. Both loader startup paths and production jars are exercised by the conventions suites. Still not automated: client-visible chat styling, offline-profile lookup with a real authentication service, and stopping/restarting a server process with the same world directory. The codec round-trip covers the mod-owned persistence logic, not vanilla's disk storage implementation.
+
+## Code review regressions
+
+- The `revoke` subcommand used to hide the identically named home from `/sharehome`. The sharing command test now grants, uses and revokes access to a home named `revoke`.
+- Gson's integer conversion used to truncate fractions and wrap large numbers. A parameterized unit test rejects fractional and overflowing limits instead of silently accepting another value.
+- The teleport service used to return success even when Minecraft rejected the teleport. A server GameTest uses a removed player to exercise Minecraft's real rejection path.
+
+Review decisions left unchanged: English literal messages and plain white failures are a presentation/localization decision; offline-mode profile resolution can identify a never-seen name, so `/homeof Nobody base` currently reports that the resolved profile has no such home. Neither loader owns background threads or open resources, and both call the same configuration and command registration code.
