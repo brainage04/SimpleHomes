@@ -85,7 +85,7 @@ public final class SimpleHomesGameTests {
 		helper.assertTrue(execute(helper, player, "sethome BASE_1") == 1, "Updating at the limit must remain possible");
 		player.teleportTo(target.getX() + 15.0D, target.getY(), target.getZ() + 15.0D);
 		helper.assertTrue(execute(helper, player, "home BASE_1") == 1, "Home lookup must be case-insensitive");
-		helper.assertTrue(player.position().distanceToSqr(home.position().getCenter().add(0.0D, -0.5D, 0.0D)) < 0.0001D,
+		helper.assertTrue(player.getX() == target.getX() + 0.5D && player.getY() == target.getY() && player.getZ() == target.getZ() + 0.5D,
 				"The home command must restore the saved block's horizontal center");
 		helper.assertTrue(execute(helper, player, "home missing") == 0, "A missing home must fail");
 		helper.succeed();

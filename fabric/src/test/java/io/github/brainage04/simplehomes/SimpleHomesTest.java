@@ -7,8 +7,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -71,29 +69,31 @@ class SimpleHomesTest {
 		}
 	}
 
-	@ParameterizedTest
-	@ValueSource(strings = {"{", "null", "[]", "{}", "{\"maximumHomes\":0}", "{\"maximumHomes\":-1}", "{\"maximumHomes\":\"bad\"}"})
-	void invalidConfigurationFallsBackWithoutOverwritingTheFile(String json, @TempDir Path directory) throws IOException {
+	@Test
+	void invalidConfigurationFallsBackWithoutOverwritingTheFile(@TempDir Path directory) throws IOException {
 		Path config = directory.resolve("simplehomes.json");
 		try {
-			Files.writeString(config, "{\"maximumHomes\":3}");
-			SimpleHomesConfig.load(directory);
-			Files.writeString(config, json);
-			SimpleHomesConfig.load(directory);
-			assertEquals(10, SimpleHomesConfig.maximumHomes());
-			assertEquals(json, Files.readString(config));
+			for (String json : List.of("{", "null", "[]", "{}", "{\"maximumHomes\":0}", "{\"maximumHomes\":-1}", "{\"maximumHomes\":\"bad\"}")) {
+				Files.writeString(config, "{\"maximumHomes\":3}");
+				SimpleHomesConfig.load(directory);
+				Files.writeString(config, json);
+				SimpleHomesConfig.load(directory);
+				assertEquals(10, SimpleHomesConfig.maximumHomes(), json);
+				assertEquals(json, Files.readString(config));
+			}
 		} finally {
 			SimpleHomesConfig.load(directory.resolve("reset"));
 		}
 	}
 
-	@ParameterizedTest
-	@ValueSource(strings = {"1.5", "4294967297", "2147483648", "1e100"})
-	void fractionalAndOverflowingLimitsUseTheDefault(String number, @TempDir Path directory) throws IOException {
+	@Test
+	void fractionalAndOverflowingLimitsUseTheDefault(@TempDir Path directory) throws IOException {
 		try {
-			Files.writeString(directory.resolve("simplehomes.json"), "{\"maximumHomes\":" + number + "}");
-			SimpleHomesConfig.load(directory);
-			assertEquals(10, SimpleHomesConfig.maximumHomes());
+			for (String number : List.of("1.5", "4294967297", "2147483648", "1e100")) {
+				Files.writeString(directory.resolve("simplehomes.json"), "{\"maximumHomes\":" + number + "}");
+				SimpleHomesConfig.load(directory);
+				assertEquals(10, SimpleHomesConfig.maximumHomes(), number);
+			}
 		} finally {
 			SimpleHomesConfig.load(directory.resolve("reset"));
 		}
