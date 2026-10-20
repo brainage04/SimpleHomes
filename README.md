@@ -23,6 +23,9 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 - `/sharehome <name> <players>` - grants the selected online players access to one of your homes.
 - `/sharehome revoke <name> <players>` - revokes that access.
 - `/homeof <player> <name>` - teleports to that player's home when they have shared it with you.
+- `/simplehomes` or `/simplehomes help` - lists these commands and your home limit.
+
+Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice.
 
 ## Configuration
 

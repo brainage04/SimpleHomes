@@ -1,13 +1,21 @@
 package io.github.brainage04.simplehomes;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
+import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
+import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -145,6 +153,52 @@ public final class SimpleHomesGameTests {
 		} finally {
 			player.teleportTo(helper.getLevel(), 0.5D, 80.0D, 0.5D, Set.of(), 0.0F, 0.0F, false);
 		}
+	}
+
+	/**
+	 * Messages use BrainageLib's feedback style like SimpleTPA (grey [SimpleHomes] prefix, green success, red failure),
+	 * command results keep their counts, and SimpleHomes is listed in /servermods with a working help command.
+	 */
+	public static void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
+		try (var owner = GameTestPlayer.join(helper, "HomesOwner").gameMode(GameType.SPECTATOR);
+			 var guest = GameTestPlayer.join(helper, "HomesGuest").gameMode(GameType.SPECTATOR)) {
+			owner.clearMessages();
+			helper.assertTrue(execute(helper, owner.player(), "sethome styled") == 1, "Creating a home must still return 1");
+			assertMessage(helper, owner, "[SimpleHomes] Created home 'styled'.", 0x55FF55);
+			owner.clearMessages();
+			helper.assertTrue(execute(helper, owner.player(), "home missing") == 0, "A missing home must still return 0");
+			assertMessage(helper, owner, "[SimpleHomes] You do not have a home named 'missing'.", 0xFF5555);
+			owner.clearMessages();
+			String guestSelector = "@a[name=" + guest.player().getScoreboardName() + "]";
+			helper.assertTrue(execute(helper, owner.player(), "sharehome styled " + guestSelector) == 1, "Sharing must return the number of players granted");
+			assertMessage(helper, owner, "[SimpleHomes] Granted home access for 1 player(s).", 0x55FF55);
+			owner.clearMessages();
+			helper.assertTrue(execute(helper, owner.player(), "sharehome styled " + guestSelector) == 0, "Repeated sharing must return 0");
+			assertMessage(helper, owner, "[SimpleHomes] Granted home access for 0 player(s).", 0xFFFF55);
+			owner.clearMessages();
+			owner.command("simplehomes help");
+			helper.assertTrue(owner.received("[SimpleHomes] /sethome <name> - create or update a home where you stand"),
+					"/simplehomes help must list the commands, got " + owner.messageTexts());
+		}
+		helper.assertTrue(ServerModHelpRegistry.entries().stream().anyMatch(entry -> entry.modId().equals(SimpleHomes.MOD_ID)
+				&& entry.helpCommand().equals("/simplehomes help") && entry.adminConfigCommand() == null), "SimpleHomes must be registered in /servermods");
+		var output = new CapturedCommandOutput();
+		helper.getLevel().getServer().getCommands().performPrefixedCommand(output.source(helper.getLevel().getServer()), "servermods");
+		helper.assertTrue(output.text().contains("SimpleHomes: Adds named, persistent homes that you can share with other players. /simplehomes help"),
+				"/servermods must list SimpleHomes, got " + output.text());
+		helper.succeed();
+	}
+
+	private static void assertMessage(GameTestHelper helper, GameTestPlayer player, String text, int bodyColor) {
+		List<Component> messages = player.messages();
+		helper.assertTrue(messages.size() == 1 && messages.getFirst().getString().equals(text),
+				"Expected only \"" + text + "\", got " + player.messageTexts());
+		List<Integer> colors = new ArrayList<>();
+		messages.getFirst().visit((style, segment) -> {
+			if (!segment.isEmpty()) colors.add(style.getColor().getValue());
+			return Optional.empty();
+		}, Style.EMPTY);
+		helper.assertTrue(colors.equals(List.of(0xAAAAAA, bodyColor)), "Expected a grey prefix and a coloured body for \"" + text + "\", got " + colors);
 	}
 
 	public static void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {

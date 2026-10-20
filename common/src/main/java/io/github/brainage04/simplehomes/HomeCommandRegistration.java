@@ -9,7 +9,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
 
@@ -53,6 +52,20 @@ public final class HomeCommandRegistration {
 						.suggests(HomeCommandRegistration::suggestOwnHomes)
 						.then(argument("players", EntityArgument.players())
 								.executes(context -> changeAccess(context, true, StringArgumentType.getString(context, "name"))))));
+		dispatcher.register(literal("simplehomes")
+				.executes(context -> showHelp(context.getSource()))
+				.then(literal("help").executes(context -> showHelp(context.getSource()))));
+	}
+
+	private static int showHelp(CommandSourceStack source) {
+		SimpleHomes.FEEDBACK.neutral(source, "Player commands:");
+		SimpleHomes.FEEDBACK.neutral(source, "/sethome <name> - create or update a home where you stand");
+		SimpleHomes.FEEDBACK.neutral(source, "/home <name> - teleport to one of your homes");
+		SimpleHomes.FEEDBACK.neutral(source, "/sharehome <name> <players> - let players use one of your homes");
+		SimpleHomes.FEEDBACK.neutral(source, "/sharehome revoke <name> <players> - take that access away again");
+		SimpleHomes.FEEDBACK.neutral(source, "/homeof <player> <name> - teleport to a home someone shared with you");
+		SimpleHomes.FEEDBACK.neutral(source, "You can have up to %d homes.", SimpleHomesConfig.maximumHomes());
+		return 1;
 	}
 
 	private static int setHome(CommandContext<CommandSourceStack> context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -66,13 +79,11 @@ public final class HomeCommandRegistration {
 				SimpleHomesConfig.maximumHomes()
 		);
 		if (result == HomeData.SetResult.LIMIT_REACHED) {
-			player.sendSystemMessage(Component.literal(
-					"You already have the maximum of " + SimpleHomesConfig.maximumHomes() + " homes."
-			));
+			SimpleHomes.FEEDBACK.error(player, "You already have the maximum of %d homes.", SimpleHomesConfig.maximumHomes());
 			return 0;
 		}
 		String action = result == HomeData.SetResult.CREATED ? "Created" : "Updated";
-		player.sendSystemMessage(Component.literal(action + " home '" + name + "'."));
+		SimpleHomes.FEEDBACK.success(player, "%s home '%s'.", action, name);
 		return 1;
 	}
 
@@ -82,7 +93,7 @@ public final class HomeCommandRegistration {
 		if (name == null) return 0;
 		HomeLocation home = HomeData.get(context.getSource().getServer()).getHome(player.getUUID(), name).orElse(null);
 		if (home == null) {
-			player.sendSystemMessage(Component.literal("You do not have a home named '" + name + "'."));
+			SimpleHomes.FEEDBACK.error(player, "You do not have a home named '%s'.", name);
 			return 0;
 		}
 		return HomeTeleportService.teleport(player, home, "home '" + name + "'");
@@ -92,7 +103,7 @@ public final class HomeCommandRegistration {
 		ServerPlayer guest = context.getSource().getPlayerOrException();
 		Collection<NameAndId> owners = GameProfileArgument.getGameProfiles(context, "player");
 		if (owners.size() != 1) {
-			guest.sendSystemMessage(Component.literal("Select exactly one home owner."));
+			SimpleHomes.FEEDBACK.error(guest, "Select exactly one home owner.");
 			return 0;
 		}
 		NameAndId owner = owners.iterator().next();
@@ -101,11 +112,11 @@ public final class HomeCommandRegistration {
 		HomeData data = HomeData.get(context.getSource().getServer());
 		HomeLocation home = data.getHome(owner.id(), name).orElse(null);
 		if (home == null) {
-			guest.sendSystemMessage(Component.literal(owner.name() + " does not have a home named '" + name + "'."));
+			SimpleHomes.FEEDBACK.error(guest, "%s does not have a home named '%s'.", owner.name(), name);
 			return 0;
 		}
 		if (!data.allows(owner.id(), name, guest.getUUID())) {
-			guest.sendSystemMessage(Component.literal(owner.name() + " has not shared home '" + name + "' with you."));
+			SimpleHomes.FEEDBACK.error(guest, "%s has not shared home '%s' with you.", owner.name(), name);
 			return 0;
 		}
 		return HomeTeleportService.teleport(guest, home, owner.name() + "'s home '" + name + "'");
@@ -120,11 +131,15 @@ public final class HomeCommandRegistration {
 		HomeData data = HomeData.get(context.getSource().getServer());
 		int changed = grant ? data.grant(owner.getUUID(), name, guests) : data.revoke(owner.getUUID(), name, guests);
 		if (changed < 0) {
-			owner.sendSystemMessage(Component.literal("You do not have a home named '" + name + "'."));
+			SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
 			return 0;
 		}
 		String verb = grant ? "Granted" : "Revoked";
-		owner.sendSystemMessage(Component.literal(verb + " home access for " + changed + " player(s)."));
+		if (changed == 0) {
+			SimpleHomes.FEEDBACK.neutral(owner, "%s home access for 0 player(s).", verb);
+		} else {
+			SimpleHomes.FEEDBACK.success(owner, "%s home access for %d player(s).", verb, changed);
+		}
 		return changed;
 	}
 
@@ -142,7 +157,7 @@ public final class HomeCommandRegistration {
 	private static String normalizedName(String rawName, ServerPlayer player) {
 		String name = rawName.toLowerCase(Locale.ROOT);
 		if (VALID_NAME.matcher(name).matches()) return name;
-		player.sendSystemMessage(Component.literal("Home names must be 1-32 characters using letters, numbers, underscores, or hyphens."));
+		SimpleHomes.FEEDBACK.error(player, "Home names must be 1-32 characters using letters, numbers, underscores, or hyphens.");
 		return null;
 	}
 }

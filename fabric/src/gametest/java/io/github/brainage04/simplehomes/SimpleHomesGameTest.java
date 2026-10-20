@@ -38,4 +38,9 @@ public final class SimpleHomesGameTest {
 	public void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
 		SimpleHomesGameTests.rejectedTeleportDoesNotReportSuccess(helper);
 	}
+
+	@GameTest
+	public void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
+		SimpleHomesGameTests.messagesUseModFeedbackAndHelpIsRegistered(helper);
+	}
 }

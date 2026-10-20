@@ -1,7 +1,6 @@
 package io.github.brainage04.simplehomes;
 
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,7 +15,7 @@ public final class HomeTeleportService {
 		ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, home.dimension());
 		ServerLevel level = player.level().getServer().getLevel(dimension);
 		if (level == null) {
-			player.sendSystemMessage(Component.literal("The dimension for " + label + " is unavailable."));
+			SimpleHomes.FEEDBACK.error(player, "The dimension for %s is unavailable.", label);
 			return 0;
 		}
 		boolean teleported = player.teleportTo(
@@ -30,10 +29,10 @@ public final class HomeTeleportService {
 				false
 		);
 		if (!teleported) {
-			player.sendSystemMessage(Component.literal("Could not teleport to " + label + "."));
+			SimpleHomes.FEEDBACK.error(player, "Could not teleport to %s.", label);
 			return 0;
 		}
-		player.sendSystemMessage(Component.literal("Teleported to " + label + "."));
+		SimpleHomes.FEEDBACK.success(player, "Teleported to %s.", label);
 		return 1;
 	}
 }
