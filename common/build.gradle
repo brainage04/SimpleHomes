@@ -1,0 +1,10 @@
+workspaceDependencies {
+	siblingMaven('BrainageLib') {
+		coordinate.set("io.github.brainage04:brainagelib:${rootProject.brainagelib_version}")
+		siblingDirectory.set(rootProject.layout.projectDirectory.dir('../BrainageLib'))
+	}
+}
+
+dependencies {
+	compileOnly "io.github.brainage04:brainagelib:${rootProject.brainagelib_version}"
+}

@@ -70,6 +70,22 @@ class SimpleHomesTest {
 	}
 
 	@Test
+	void configWrittenByThePreviousVersionLoadsAndTheDefaultKeepsItsFormat(@TempDir Path directory) throws IOException {
+		Path config = directory.resolve("simplehomes.json");
+		try {
+			SimpleHomesConfig.load(directory);
+			assertEquals("{\n  \"maximumHomes\": 10\n}" + System.lineSeparator(), Files.readString(config));
+			String previous = "{\n  \"maximumHomes\": 7\n}" + System.lineSeparator();
+			Files.writeString(config, previous);
+			SimpleHomesConfig.load(directory);
+			assertEquals(7, SimpleHomesConfig.maximumHomes());
+			assertEquals(previous, Files.readString(config));
+		} finally {
+			SimpleHomesConfig.load(directory.resolve("reset"));
+		}
+	}
+
+	@Test
 	void invalidConfigurationFallsBackWithoutOverwritingTheFile(@TempDir Path directory) throws IOException {
 		Path config = directory.resolve("simplehomes.json");
 		try {

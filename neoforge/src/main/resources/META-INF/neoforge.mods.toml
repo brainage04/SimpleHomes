@@ -25,3 +25,10 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.simplehomes]]
+modId="brainagelib"
+type="required"
+versionRange="[${brainagelib_version},)"
+ordering="NONE"
+side="BOTH"
