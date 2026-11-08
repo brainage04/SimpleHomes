@@ -13,7 +13,6 @@ public final class SimpleHomes {
 	public static final String MOD_ID = "simplehomes";
 	public static final String MOD_NAME = "SimpleHomes";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_NAME);
-	/** Player messages: grey [SimpleHomes] prefix, green success, red failure, yellow information. */
 	public static final ModFeedback FEEDBACK = ModFeedback.create(MOD_NAME);
 
 	private SimpleHomes() {

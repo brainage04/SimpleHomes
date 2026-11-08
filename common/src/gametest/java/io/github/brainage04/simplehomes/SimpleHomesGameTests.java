@@ -18,11 +18,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Loader-neutral server GameTest bodies. Both loaders compile this source set into their GameTest
- * mods: Fabric runs them through {@code @GameTest} methods, NeoForge through registered test
- * functions and {@code test_instance} data.
- */
 public final class SimpleHomesGameTests {
 	private SimpleHomesGameTests() {
 	}
@@ -155,10 +150,6 @@ public final class SimpleHomesGameTests {
 		}
 	}
 
-	/**
-	 * Messages use BrainageLib's feedback style like SimpleTPA (grey [SimpleHomes] prefix, green success, red failure),
-	 * command results keep their counts, and SimpleHomes is listed in /servermods with a working help command.
-	 */
 	public static void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
 		try (var owner = GameTestPlayer.join(helper, "HomesOwner").gameMode(GameType.SPECTATOR);
 			 var guest = GameTestPlayer.join(helper, "HomesGuest").gameMode(GameType.SPECTATOR)) {

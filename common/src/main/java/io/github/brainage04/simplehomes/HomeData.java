@@ -17,7 +17,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** Persistent home locations and owner-scoped access lists. */
 public final class HomeData extends SavedData {
 	private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(UUID::fromString, UUID::toString);
 	private static final Codec<Map<String, HomeLocation>> OWNER_HOMES_CODEC =

@@ -12,7 +12,7 @@ import io.github.brainage04.brainagelib.storage.JsonFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
-/** Minimal loader-neutral JSON configuration. A file that cannot be loaded leaves the default in place and is kept. */
+/** A file that cannot be loaded leaves the default in place and is kept. */
 public final class SimpleHomesConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final int DEFAULT_MAXIMUM_HOMES = 10;
