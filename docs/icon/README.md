@@ -1,8 +1,8 @@
 # SimpleHomes icon
 
-## What this is
+## Overview
 
-The mod's icon: `icon.png` — 512x512 RGBA PNG, 3 458 bytes,
+The mod's icon is `icon.png`: a 512x512 RGBA PNG, 3 458 bytes,
 sha256 `fb3476a01d78cc2e736a4f2815c18fdfff7063965bb9c17ff9a72b46ee7740d3`.
 
 It is a real in-game screenshot of the mod's `/home` tab-completion: a 340x340 square crop
@@ -25,9 +25,9 @@ compositing. The mod ships 128x128 LANCZOS reductions of `icon.png` at
 | Renderer | software OpenGL (Mesa llvmpipe), `-XX:ActiveProcessorCount=8`, `LP_NUM_THREADS=8` |
 | Shader pack | **none** |
 | Resource pack | **none** |
-| World | `UI Void` — a byte-copy of the BrainageHUD capture world (flat generator, `layers=[]`, biome `minecraft:the_void`, seed `20260910`), prepared by `prepare.py` |
+| World | `UI Void`, a byte-copy of the BrainageHUD capture world (flat generator, `layers=[]`, biome `minecraft:the_void`, seed `20260910`), prepared by `prepare.py` |
 | Options | GUI scale 4, `renderClouds=false`, `maxFps=20`, `renderDistance=2` (the client enforced its minimum of 12 and logged that), `soundCategory_master=0.01` |
-| Scene | `/gamemode creative` → `/gamemode spectator`, `/time set noon`, `/weather clear`, `/tick freeze`, `/tp @s 0.5 -60 0.5 0 -90` — the camera looks straight up into the void sky |
+| Scene | `/gamemode creative` → `/gamemode spectator`, `/time set noon`, `/weather clear`, `/tick freeze`, `/tp @s 0.5 -60 0.5 0 -90`; the camera looks straight up into the void sky |
 | Screenshot | chat history cleared with F3+D, then `t` and the literal text `/home ` typed at 80 ms/key, then the game's own native F2 PNG (`capture_scene.py capture simplehomes-home '/home '`) |
 
 The three homes `base`, `mine` and `village` existed in that world, so the client draws its
@@ -71,7 +71,7 @@ right edge of the crop, exactly as in the source frame.
 | `launch-crops2.sh`, `client-crops2.args` | The exact launcher and Java argfile of the session |
 | `cleanup.json`, `blockers.json` | Resource teardown record and the session's known limitations |
 
-Excluded on purpose: the game directory `runtime/` (21 MB — its F2 screenshots are duplicates
+Excluded on purpose: the game directory `runtime/` (21 MB; its F2 screenshots are duplicates
 of the two frames kept here), session logs, `__pycache__`, the superseded centred crop
 `evidence/simplehomes-autocomplete-square-previous.png`, and the evidence for the other two
 icons of the same session where it is not shared context (they are in their own mods'
@@ -116,15 +116,15 @@ session's world, which is not part of this provenance.
 
 ## Notes
 
-* **`verification.json` and `crop-report.json` describe the superseded crop, not the delivered
-  file.** Both record the first attempt: box `[44, 1764, 384, 2104]`, equal 104/104 px sky
+* **`verification.json` and `crop-report.json` describe the superseded crop.** Both record the
+  first attempt: box `[44, 1764, 384, 2104]`, equal 104/104 px sky
   margins, output sha256 `c16a24fc…`. That framing clipped the native input command text at
-  `x` 16, so the image was re-cropped anchored to the bottom-left of the frame — box
+  `x` 16, so the image was re-cropped anchored to the bottom-left of the frame: box
   `[0, 1820, 340, 2160]`, sha256 `9f7e449e…`, which is the capture crop `icon.png` is made from and what
   `manifest.json` records (with `fixedFrom: evidence/simplehomes-autocomplete-square-previous.png`).
   The superseded PNG itself is **not** copied into this provenance.
 * Consequence of that re-crop: the sky margins of the capture crop are 148 px left and
-  60 px right of the panel — *not* equal. The three completion entries and the typed input
+  60 px right of the panel, so they are not equal. The three completion entries and the typed input
   line are complete and unclipped, which was the deciding requirement.
 * The SimpleHomes completion list is drawn at the caret after the typed `/home `, so its panel
   starts at frame `x` 148 while SimpleTPA's and SpawnCommands' start at `x` 36; that is why the
