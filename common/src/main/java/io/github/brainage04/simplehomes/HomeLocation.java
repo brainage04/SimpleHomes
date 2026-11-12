@@ -57,8 +57,9 @@ public record HomeLocation(
 
     private static Vec3 onFloorOf(BlockGetter level, BlockPos block) {
         double floor = level.getBlockFloorHeight(block);
-        // No floor within reach (the block and the one below have no full-height top): the
-        // block's bottom centre, where the builds that saved only the block landed.
+        // No floor: the block has no collision shape and the block below tops out under a full
+        // block (air, a bottom slab, a chest; BlockGetter.java:101-102). Land on the block's bottom
+        // centre then, where the builds that saved only the block landed.
         return Vec3.upFromBottomCenterOf(block, Double.isInfinite(floor) ? 0.0D : floor);
     }
 }

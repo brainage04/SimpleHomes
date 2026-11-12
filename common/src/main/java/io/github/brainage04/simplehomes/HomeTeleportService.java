@@ -48,10 +48,10 @@ public final class HomeTeleportService {
     }
 
     /**
-     * Whether the player fits at {@code destination} in one of the poses vanilla tries when it puts
-     * a player down from a vehicle: the block-collision and world-border test of
-     * DismountHelper.canDismountTo (DismountHelper.java:42-50) over Player.getDismountPoses.
-     * Liquids do not count, as in that test.
+     * Whether the player fits at {@code destination}: vanilla's check for a passenger getting off a
+     * mount (DismountHelper.canDismountTo, DismountHelper.java:42-50), block collisions and the
+     * world border in any of the player's dismount poses (Player.getDismountPoses), judged at the
+     * destination height. Liquids do not count, as in that check.
      */
     private static boolean fits(ServerLevel level, ServerPlayer player, Vec3 destination) {
         // Block collisions treat a chunk that is not loaded as empty (BlockCollisions.java:86-87,
@@ -66,11 +66,11 @@ public final class HomeTeleportService {
                 level.getChunk(x, z);
             }
         }
-        // canDismountTo judges blocks from the player's current height, but scaffolding takes its
-        // shape from the height of whoever stands in it (ScaffoldingBlock.java:130-139,
-        // EntityCollisionContext.isAbove), so judge them at the destination height instead. That
-        // context has no entity, so powder snow lets the player through, as it does for vanilla's
-        // own stand-up check (PowderSnowBlock.java:116-131, DismountHelper.java:99).
+        // canDismountTo uses the player's own collision context, which shapes scaffolding and
+        // powder snow by where the player stands now (ScaffoldingBlock.java:130-139,
+        // PowderSnowBlock.java:116-131). A dismount happens at about that height and a teleport
+        // does not, so this context judges them at the destination height. It has no entity, so
+        // powder snow never collides, whatever boots the player wears.
         CollisionContext atDestination = CollisionContext.positionContext(destination.y());
         return player.getDismountPoses().stream()
                 .map(pose -> player.getLocalBoundsForPose(pose).move(destination))
