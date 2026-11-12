@@ -4,211 +4,326 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
-import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.Level;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 
 public final class SimpleHomesGameTests {
-	private SimpleHomesGameTests() {
-	}
+    private SimpleHomesGameTests() {}
 
-	public static void allHomeCommandsAreRegistered(GameTestHelper helper) {
-		var root = helper.getLevel().getServer().getCommands().getDispatcher().getRoot();
-		for (String command : List.of("sethome", "home", "homeof", "sharehome")) {
-			if (root.getChild(command) == null) throw new AssertionError("Expected /" + command + " to be registered");
-		}
-		helper.succeed();
-	}
+    public static void allHomeCommandsAreRegistered(GameTestHelper helper) {
+        var root = helper.getLevel().getServer().getCommands().getDispatcher().getRoot();
+        for (String command : List.of("sethome", "home", "homeof", "sharehome")) {
+            if (root.getChild(command) == null)
+                throw new AssertionError("Expected /" + command + " to be registered");
+        }
+        helper.succeed();
+    }
 
-	public static void namedHomesRespectLimitsAndTeleport(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		HomeData data = HomeData.get(helper.getLevel().getServer());
-		BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
-		HomeLocation home = new HomeLocation(helper.getLevel().dimension().identifier(), homePosition, 45.0F, 0.0F);
-		helper.assertTrue(data.setHome(player.getUUID(), "base", home, 1) == HomeData.SetResult.CREATED,
-				"The first named home must be created");
-		helper.assertTrue(data.setHome(player.getUUID(), "mine", home, 1) == HomeData.SetResult.LIMIT_REACHED,
-				"A new home beyond the configured limit must be rejected");
-		player.teleportTo(20.0D, homePosition.getY(), 20.0D);
-		helper.assertTrue(HomeTeleportService.teleport(player, home, "test home") == 1,
-				"A saved home must teleport successfully");
-		helper.assertTrue(player.blockPosition().distSqr(homePosition) <= 1.0D,
-				"A saved home must restore its dimension and position");
-		helper.succeed();
-	}
+    public static void namedHomesRespectLimitsAndTeleport(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        HomeData data = HomeData.get(helper.getLevel().getServer());
+        BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
+        HomeLocation home =
+                new HomeLocation(
+                        helper.getLevel().dimension().identifier(), homePosition, 45.0F, 0.0F);
+        helper.assertTrue(
+                data.setHome(player.getUUID(), "base", home, 1) == HomeData.SetResult.CREATED,
+                "The first named home must be created");
+        helper.assertTrue(
+                data.setHome(player.getUUID(), "mine", home, 1) == HomeData.SetResult.LIMIT_REACHED,
+                "A new home beyond the configured limit must be rejected");
+        player.teleportTo(20.0D, homePosition.getY(), 20.0D);
+        helper.assertTrue(
+                HomeTeleportService.teleport(player, home, "test home") == 1,
+                "A saved home must teleport successfully");
+        helper.assertTrue(
+                player.blockPosition().distSqr(homePosition) <= 1.0D,
+                "A saved home must restore its dimension and position");
+        helper.succeed();
+    }
 
-	public static void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
-		ServerPlayer owner = helper.makeMockServerPlayerInLevel();
-		ServerPlayer guest = helper.makeMockServerPlayerInLevel();
-		HomeData data = HomeData.get(helper.getLevel().getServer());
-		BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
-		HomeLocation home = new HomeLocation(helper.getLevel().dimension().identifier(), homePosition, 0.0F, 0.0F);
-		data.setHome(owner.getUUID(), "base", home, 10);
-		data.setHome(owner.getUUID(), "mine", home, 10);
-		helper.assertTrue(data.grant(owner.getUUID(), "base", List.of(guest.getUUID())) == 1,
-				"Sharing a home must grant one owner-scoped entry");
-		helper.assertTrue(data.allows(owner.getUUID(), "base", guest.getUUID()),
-				"The shared home must be accessible to the guest");
-		helper.assertTrue(!data.allows(owner.getUUID(), "mine", guest.getUUID()),
-				"Sharing one home must not expose the owner's other homes");
-		helper.assertTrue(HomeTeleportService.teleport(guest, home, "shared test home") == 1,
-				"An allowed guest must be able to use the shared location");
-		helper.assertTrue(guest.blockPosition().distSqr(homePosition) <= 1.0D,
-				"The guest must reach the shared home");
-		helper.succeed();
-	}
+    public static void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer guest = helper.makeMockServerPlayerInLevel();
+        HomeData data = HomeData.get(helper.getLevel().getServer());
+        BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
+        HomeLocation home =
+                new HomeLocation(
+                        helper.getLevel().dimension().identifier(), homePosition, 0.0F, 0.0F);
+        data.setHome(owner.getUUID(), "base", home, 10);
+        data.setHome(owner.getUUID(), "mine", home, 10);
+        helper.assertTrue(
+                data.grant(owner.getUUID(), "base", List.of(guest.getUUID())) == 1,
+                "Sharing a home must grant one owner-scoped entry");
+        helper.assertTrue(
+                data.allows(owner.getUUID(), "base", guest.getUUID()),
+                "The shared home must be accessible to the guest");
+        helper.assertTrue(
+                !data.allows(owner.getUUID(), "mine", guest.getUUID()),
+                "Sharing one home must not expose the owner's other homes");
+        helper.assertTrue(
+                HomeTeleportService.teleport(guest, home, "shared test home") == 1,
+                "An allowed guest must be able to use the shared location");
+        helper.assertTrue(
+                guest.blockPosition().distSqr(homePosition) <= 1.0D,
+                "The guest must reach the shared home");
+        helper.succeed();
+    }
 
-	public static void commandsNormalizeNamesAndEnforceLimits(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		HomeData data = HomeData.get(helper.getLevel().getServer());
-		BlockPos target = helper.absolutePos(new BlockPos(2, 2, 2));
-		player.teleportTo(target.getX() + 0.25D, target.getY(), target.getZ() + 0.75D);
-		player.setYRot(70.0F);
-		player.setXRot(-15.0F);
-		helper.assertTrue(execute(helper, player, "sethome BaSe_1") == 1, "A valid mixed-case home must be created");
-		HomeLocation home = data.getHome(player.getUUID(), "base_1").orElseThrow();
-		helper.assertTrue(home.position().equals(target) && home.yaw() == 70.0F && home.pitch() == -15.0F,
-				"The command must save block position and rotation");
-		helper.assertTrue(execute(helper, player, "sethome bad.name") == 0, "Invalid characters must be rejected");
-		helper.assertTrue(execute(helper, player, "sethome " + "a".repeat(33)) == 0, "Names beyond 32 characters must be rejected");
-		for (int i = 1; i < SimpleHomesConfig.maximumHomes(); i++) {
-			execute(helper, player, "sethome home_" + i);
-		}
-		helper.assertTrue(execute(helper, player, "sethome overflow") == 0, "The command must enforce the configured limit");
-		helper.assertTrue(execute(helper, player, "sethome BASE_1") == 1, "Updating at the limit must remain possible");
-		player.teleportTo(target.getX() + 15.0D, target.getY(), target.getZ() + 15.0D);
-		helper.assertTrue(execute(helper, player, "home BASE_1") == 1, "Home lookup must be case-insensitive");
-		helper.assertTrue(player.getX() == target.getX() + 0.5D && player.getY() == target.getY() && player.getZ() == target.getZ() + 0.5D,
-				"The home command must restore the saved block's horizontal center");
-		helper.assertTrue(execute(helper, player, "home missing") == 0, "A missing home must fail");
-		helper.succeed();
-	}
+    public static void commandsNormalizeNamesAndEnforceLimits(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        HomeData data = HomeData.get(helper.getLevel().getServer());
+        BlockPos target = helper.absolutePos(new BlockPos(2, 2, 2));
+        player.teleportTo(target.getX() + 0.25D, target.getY(), target.getZ() + 0.75D);
+        player.setYRot(70.0F);
+        player.setXRot(-15.0F);
+        helper.assertTrue(
+                execute(helper, player, "sethome BaSe_1") == 1,
+                "A valid mixed-case home must be created");
+        HomeLocation home = data.getHome(player.getUUID(), "base_1").orElseThrow();
+        helper.assertTrue(
+                home.position().equals(target) && home.yaw() == 70.0F && home.pitch() == -15.0F,
+                "The command must save block position and rotation");
+        helper.assertTrue(
+                execute(helper, player, "sethome bad.name") == 0,
+                "Invalid characters must be rejected");
+        helper.assertTrue(
+                execute(helper, player, "sethome " + "a".repeat(33)) == 0,
+                "Names beyond 32 characters must be rejected");
+        for (int i = 1; i < SimpleHomesConfig.maximumHomes(); i++) {
+            execute(helper, player, "sethome home_" + i);
+        }
+        helper.assertTrue(
+                execute(helper, player, "sethome overflow") == 0,
+                "The command must enforce the configured limit");
+        helper.assertTrue(
+                execute(helper, player, "sethome BASE_1") == 1,
+                "Updating at the limit must remain possible");
+        player.teleportTo(target.getX() + 15.0D, target.getY(), target.getZ() + 15.0D);
+        helper.assertTrue(
+                execute(helper, player, "home BASE_1") == 1,
+                "Home lookup must be case-insensitive");
+        helper.assertTrue(
+                player.getX() == target.getX() + 0.5D
+                        && player.getY() == target.getY()
+                        && player.getZ() == target.getZ() + 0.5D,
+                "The home command must restore the saved block's horizontal center");
+        helper.assertTrue(execute(helper, player, "home missing") == 0, "A missing home must fail");
+        helper.succeed();
+    }
 
-	public static void sharingCommandsEnforceAndRevokeAccess(GameTestHelper helper) {
-		ServerPlayer owner = helper.makeMockServerPlayerInLevel();
-		ServerPlayer guest = helper.makeMockServerPlayerInLevel();
-		var players = helper.getLevel().getServer().getPlayerList();
-		String tag = "simplehomes_" + owner.getUUID();
-		owner.addTag(tag);
-		String guestTag = "simplehomes_" + guest.getUUID();
-		guest.addTag(guestTag);
-		String guestSelector = "@a[tag=" + guestTag + "]";
-		try {
-			execute(helper, owner, "sethome base");
-			execute(helper, owner, "sethome mine");
-			String sharedHome = "homeof @a[tag=" + tag + "] base";
-			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "An uninvited guest must be denied");
-			helper.assertTrue(execute(helper, owner, "sharehome base " + guestSelector) == 1, "Sharing must grant access");
-			helper.assertTrue(execute(helper, owner, "sharehome base " + guestSelector) == 0, "Duplicate sharing must not count twice");
-			helper.assertTrue(execute(helper, guest, sharedHome) == 1, "A shared home must be usable");
-			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] mine") == 0, "Other homes must stay private");
-			helper.assertTrue(execute(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0, "Guests cannot share another owner's home");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke base " + guestSelector) == 1, "Revocation must remove access");
-			helper.assertTrue(execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
-			helper.assertTrue(execute(helper, owner, "homeof @a[tag=" + tag + "] base") == 1, "Owners must retain access");
-			helper.assertTrue(execute(helper, owner, "sethome revoke") == 1, "'revoke' must remain a valid home name");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke " + guestSelector) == 1, "A home named 'revoke' must be shareable");
-			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1, "The guest must reach the home named 'revoke'");
-			helper.assertTrue(execute(helper, owner, "sharehome revoke revoke " + guestSelector) == 1, "Access to a home named 'revoke' must be revocable");
-			helper.assertTrue(execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0, "Revocation must apply to the home named 'revoke'");
-			helper.succeed();
-		} finally {
-			players.remove(owner);
-			players.remove(guest);
-		}
-	}
+    public static void sharingCommandsEnforceAndRevokeAccess(GameTestHelper helper) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer guest = helper.makeMockServerPlayerInLevel();
+        var players = helper.getLevel().getServer().getPlayerList();
+        String tag = "simplehomes_" + owner.getUUID();
+        owner.addTag(tag);
+        String guestTag = "simplehomes_" + guest.getUUID();
+        guest.addTag(guestTag);
+        String guestSelector = "@a[tag=" + guestTag + "]";
+        try {
+            execute(helper, owner, "sethome base");
+            execute(helper, owner, "sethome mine");
+            String sharedHome = "homeof @a[tag=" + tag + "] base";
+            helper.assertTrue(
+                    execute(helper, guest, sharedHome) == 0, "An uninvited guest must be denied");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome base " + guestSelector) == 1,
+                    "Sharing must grant access");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome base " + guestSelector) == 0,
+                    "Duplicate sharing must not count twice");
+            helper.assertTrue(
+                    execute(helper, guest, sharedHome) == 1, "A shared home must be usable");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] mine") == 0,
+                    "Other homes must stay private");
+            helper.assertTrue(
+                    execute(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0,
+                    "Guests cannot share another owner's home");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome revoke base " + guestSelector) == 1,
+                    "Revocation must remove access");
+            helper.assertTrue(
+                    execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
+            helper.assertTrue(
+                    execute(helper, owner, "homeof @a[tag=" + tag + "] base") == 1,
+                    "Owners must retain access");
+            helper.assertTrue(
+                    execute(helper, owner, "sethome revoke") == 1,
+                    "'revoke' must remain a valid home name");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome revoke " + guestSelector) == 1,
+                    "A home named 'revoke' must be shareable");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
+                    "The guest must reach the home named 'revoke'");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome revoke revoke " + guestSelector) == 1,
+                    "Access to a home named 'revoke' must be revocable");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
+                    "Revocation must apply to the home named 'revoke'");
+            helper.succeed();
+        } finally {
+            players.remove(owner);
+            players.remove(guest);
+        }
+    }
 
-	public static void teleportsAcrossDimensionsAndRejectsMissingDimensions(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		var server = helper.getLevel().getServer();
-		var nether = server.getLevel(Level.NETHER);
-		helper.assertTrue(nether != null, "The test server must provide the Nether");
-		try {
-			HomeLocation home = new HomeLocation(Level.NETHER.identifier(), new BlockPos(8, 80, -12), 65.0F, -25.0F);
-			helper.assertTrue(HomeTeleportService.teleport(player, home, "Nether home") == 1, "Cross-dimension teleport must succeed");
-			helper.assertTrue(player.level() == nether, "Teleport must restore the saved dimension");
-			helper.assertTrue(player.getX() == 8.5D && player.getY() == 80.0D && player.getZ() == -11.5D,
-					"Teleport must restore block position");
-			helper.assertTrue(player.getYRot() == 65.0F && player.getXRot() == -25.0F, "Teleport must restore rotation");
-			var before = player.position();
-			HomeLocation missing = new HomeLocation(Identifier.fromNamespaceAndPath("simplehomes", "missing"), BlockPos.ZERO, 0.0F, 0.0F);
-			helper.assertTrue(HomeTeleportService.teleport(player, missing, "missing home") == 0, "Unavailable dimensions must fail");
-			helper.assertTrue(player.level() == nether && player.position().equals(before), "A failed teleport must not move the player");
-			helper.succeed();
-		} finally {
-			player.teleportTo(helper.getLevel(), 0.5D, 80.0D, 0.5D, Set.of(), 0.0F, 0.0F, false);
-		}
-	}
+    public static void teleportsAcrossDimensionsAndRejectsMissingDimensions(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        var server = helper.getLevel().getServer();
+        var nether = server.getLevel(Level.NETHER);
+        helper.assertTrue(nether != null, "The test server must provide the Nether");
+        try {
+            HomeLocation home =
+                    new HomeLocation(
+                            Level.NETHER.identifier(), new BlockPos(8, 80, -12), 65.0F, -25.0F);
+            helper.assertTrue(
+                    HomeTeleportService.teleport(player, home, "Nether home") == 1,
+                    "Cross-dimension teleport must succeed");
+            helper.assertTrue(
+                    player.level() == nether, "Teleport must restore the saved dimension");
+            helper.assertTrue(
+                    player.getX() == 8.5D && player.getY() == 80.0D && player.getZ() == -11.5D,
+                    "Teleport must restore block position");
+            helper.assertTrue(
+                    player.getYRot() == 65.0F && player.getXRot() == -25.0F,
+                    "Teleport must restore rotation");
+            var before = player.position();
+            HomeLocation missing =
+                    new HomeLocation(
+                            Identifier.fromNamespaceAndPath("simplehomes", "missing"),
+                            BlockPos.ZERO,
+                            0.0F,
+                            0.0F);
+            helper.assertTrue(
+                    HomeTeleportService.teleport(player, missing, "missing home") == 0,
+                    "Unavailable dimensions must fail");
+            helper.assertTrue(
+                    player.level() == nether && player.position().equals(before),
+                    "A failed teleport must not move the player");
+            helper.succeed();
+        } finally {
+            player.teleportTo(helper.getLevel(), 0.5D, 80.0D, 0.5D, Set.of(), 0.0F, 0.0F, false);
+        }
+    }
 
-	public static void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
-		try (var owner = GameTestPlayer.join(helper, "HomesOwner").gameMode(GameType.SPECTATOR);
-			 var guest = GameTestPlayer.join(helper, "HomesGuest").gameMode(GameType.SPECTATOR)) {
-			owner.clearMessages();
-			helper.assertTrue(execute(helper, owner.player(), "sethome styled") == 1, "Creating a home must still return 1");
-			assertMessage(helper, owner, "[SimpleHomes] Created home 'styled'.", 0x55FF55);
-			owner.clearMessages();
-			helper.assertTrue(execute(helper, owner.player(), "home missing") == 0, "A missing home must still return 0");
-			assertMessage(helper, owner, "[SimpleHomes] You do not have a home named 'missing'.", 0xFF5555);
-			owner.clearMessages();
-			String guestSelector = "@a[name=" + guest.player().getScoreboardName() + "]";
-			helper.assertTrue(execute(helper, owner.player(), "sharehome styled " + guestSelector) == 1, "Sharing must return the number of players granted");
-			assertMessage(helper, owner, "[SimpleHomes] Granted home access for 1 player(s).", 0x55FF55);
-			owner.clearMessages();
-			helper.assertTrue(execute(helper, owner.player(), "sharehome styled " + guestSelector) == 0, "Repeated sharing must return 0");
-			assertMessage(helper, owner, "[SimpleHomes] Granted home access for 0 player(s).", 0xFFFF55);
-			owner.clearMessages();
-			owner.command("simplehomes help");
-			helper.assertTrue(owner.received("[SimpleHomes] /sethome <name> - create or update a home where you stand"),
-					"/simplehomes help must list the commands, got " + owner.messageTexts());
-		}
-		helper.assertTrue(ServerModHelpRegistry.entries().stream().anyMatch(entry -> entry.modId().equals(SimpleHomes.MOD_ID)
-				&& entry.helpCommand().equals("/simplehomes help") && entry.adminConfigCommand() == null), "SimpleHomes must be registered in /servermods");
-		var output = new CapturedCommandOutput();
-		helper.getLevel().getServer().getCommands().performPrefixedCommand(output.source(helper.getLevel().getServer()), "servermods");
-		helper.assertTrue(output.text().contains("SimpleHomes: Adds named, persistent homes that you can share with other players. /simplehomes help"),
-				"/servermods must list SimpleHomes, got " + output.text());
-		helper.succeed();
-	}
+    public static void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
+        try (var owner = GameTestPlayer.join(helper, "HomesOwner").gameMode(GameType.SPECTATOR);
+                var guest =
+                        GameTestPlayer.join(helper, "HomesGuest").gameMode(GameType.SPECTATOR)) {
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sethome styled") == 1,
+                    "Creating a home must still return 1");
+            assertMessage(helper, owner, "[SimpleHomes] Created home 'styled'.", 0x55FF55);
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner.player(), "home missing") == 0,
+                    "A missing home must still return 0");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] You do not have a home named 'missing'.",
+                    0xFF5555);
+            owner.clearMessages();
+            String guestSelector = "@a[name=" + guest.player().getScoreboardName() + "]";
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sharehome styled " + guestSelector) == 1,
+                    "Sharing must return the number of players granted");
+            assertMessage(
+                    helper, owner, "[SimpleHomes] Granted home access for 1 player(s).", 0x55FF55);
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sharehome styled " + guestSelector) == 0,
+                    "Repeated sharing must return 0");
+            assertMessage(
+                    helper, owner, "[SimpleHomes] Granted home access for 0 player(s).", 0xFFFF55);
+            owner.clearMessages();
+            owner.command("simplehomes help");
+            helper.assertTrue(
+                    owner.received(
+                            "[SimpleHomes] /sethome <name> - create or update a home where you stand"),
+                    "/simplehomes help must list the commands, got " + owner.messageTexts());
+        }
+        helper.assertTrue(
+                ServerModHelpRegistry.entries().stream()
+                        .anyMatch(
+                                entry ->
+                                        entry.modId().equals(SimpleHomes.MOD_ID)
+                                                && entry.helpCommand().equals("/simplehomes help")
+                                                && entry.adminConfigCommand() == null),
+                "SimpleHomes must be registered in /servermods");
+        var output = new CapturedCommandOutput();
+        helper.getLevel()
+                .getServer()
+                .getCommands()
+                .performPrefixedCommand(output.source(helper.getLevel().getServer()), "servermods");
+        helper.assertTrue(
+                output.text()
+                        .contains(
+                                "SimpleHomes: Adds named, persistent homes that you can share with other players. /simplehomes help"),
+                "/servermods must list SimpleHomes, got " + output.text());
+        helper.succeed();
+    }
 
-	private static void assertMessage(GameTestHelper helper, GameTestPlayer player, String text, int bodyColor) {
-		List<Component> messages = player.messages();
-		helper.assertTrue(messages.size() == 1 && messages.getFirst().getString().equals(text),
-				"Expected only \"" + text + "\", got " + player.messageTexts());
-		List<Integer> colors = new ArrayList<>();
-		messages.getFirst().visit((style, segment) -> {
-			if (!segment.isEmpty()) colors.add(style.getColor().getValue());
-			return Optional.empty();
-		}, Style.EMPTY);
-		helper.assertTrue(colors.equals(List.of(0xAAAAAA, bodyColor)), "Expected a grey prefix and a coloured body for \"" + text + "\", got " + colors);
-	}
+    private static void assertMessage(
+            GameTestHelper helper, GameTestPlayer player, String text, int bodyColor) {
+        List<Component> messages = player.messages();
+        helper.assertTrue(
+                messages.size() == 1 && messages.getFirst().getString().equals(text),
+                "Expected only \"" + text + "\", got " + player.messageTexts());
+        List<Integer> colors = new ArrayList<>();
+        messages.getFirst()
+                .visit(
+                        (style, segment) -> {
+                            if (!segment.isEmpty()) colors.add(style.getColor().getValue());
+                            return Optional.empty();
+                        },
+                        Style.EMPTY);
+        helper.assertTrue(
+                colors.equals(List.of(0xAAAAAA, bodyColor)),
+                "Expected a grey prefix and a coloured body for \"" + text + "\", got " + colors);
+    }
 
-	public static void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		var before = player.position();
-		player.discard();
-		HomeLocation home = new HomeLocation(helper.getLevel().dimension().identifier(), helper.absolutePos(new BlockPos(2, 2, 2)), 0.0F, 0.0F);
-		helper.assertTrue(HomeTeleportService.teleport(player, home, "test home") == 0,
-				"A teleport rejected by Minecraft must not return success");
-		helper.assertTrue(player.position().equals(before), "A rejected teleport must not move the player");
-		helper.succeed();
-	}
+    public static void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        var before = player.position();
+        player.discard();
+        HomeLocation home =
+                new HomeLocation(
+                        helper.getLevel().dimension().identifier(),
+                        helper.absolutePos(new BlockPos(2, 2, 2)),
+                        0.0F,
+                        0.0F);
+        helper.assertTrue(
+                HomeTeleportService.teleport(player, home, "test home") == 0,
+                "A teleport rejected by Minecraft must not return success");
+        helper.assertTrue(
+                player.position().equals(before), "A rejected teleport must not move the player");
+        helper.succeed();
+    }
 
-	private static int execute(GameTestHelper helper, ServerPlayer player, String command) {
-		var server = helper.getLevel().getServer();
-		try {
-			return server.getCommands().getDispatcher().execute(command, server.createCommandSourceStack().withEntity(player));
-		} catch (CommandSyntaxException exception) {
-			throw new IllegalStateException("Could not execute /" + command, exception);
-		}
-	}
+    private static int execute(GameTestHelper helper, ServerPlayer player, String command) {
+        var server = helper.getLevel().getServer();
+        try {
+            return server.getCommands()
+                    .getDispatcher()
+                    .execute(command, server.createCommandSourceStack().withEntity(player));
+        } catch (CommandSyntaxException exception) {
+            throw new IllegalStateException("Could not execute /" + command, exception);
+        }
+    }
 }
