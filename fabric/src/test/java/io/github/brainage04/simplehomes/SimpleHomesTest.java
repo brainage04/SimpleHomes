@@ -77,7 +77,7 @@ class SimpleHomesTest {
         Path config = directory.resolve("simplehomes.json");
         try {
             SimpleHomesConfig.load(directory);
-            assertEquals("{\n  \"maximumHomes\": 10\n}", Files.readString(config));
+            assertEquals("{\n  \"maximumHomes\": 10\n}\n", Files.readString(config));
             String previous = "{\n  \"maximumHomes\": 7\n}" + System.lineSeparator();
             Files.writeString(config, previous);
             SimpleHomesConfig.load(directory);
