@@ -12,9 +12,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.SharedConstants;
-import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -138,7 +138,7 @@ class SimpleHomesTest {
         HomeLocation base =
                 new HomeLocation(
                         Identifier.withDefaultNamespace("the_nether"),
-                        new BlockPos(-12, 64, 32),
+                        new Vec3(-12.25D, 64.0D, 32.75D),
                         75.0F,
                         -20.0F);
         data.setHome(owner, "base", base, 10);
@@ -206,6 +206,15 @@ class SimpleHomesTest {
         assertTrue(data.allows(UUID.fromString(valid), "base", UUID.fromString(guest)));
     }
 
+    @Test
+    void homesSavedWithOnlyABlockLandOnItsBottomCentre() {
+        var json =
+                JsonParser.parseString(
+                        "{\"dimension\": \"minecraft:overworld\", \"position\": [1, 2, 3]}");
+        HomeLocation home = HomeLocation.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
+        assertEquals(new Vec3(1.5D, 2.0D, 3.5D), home.position());
+    }
+
     private static HomeData roundTrip(HomeData data) {
         var json = HomeData.TYPE.codec().encodeStart(JsonOps.INSTANCE, data).getOrThrow();
         return HomeData.TYPE.codec().parse(JsonOps.INSTANCE, json).getOrThrow();
@@ -214,7 +223,7 @@ class SimpleHomesTest {
     private static HomeLocation location(int coordinate) {
         return new HomeLocation(
                 Identifier.withDefaultNamespace("overworld"),
-                new BlockPos(coordinate, coordinate, coordinate),
+                new Vec3(coordinate, coordinate, coordinate),
                 0.0F,
                 0.0F);
     }

@@ -11,14 +11,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
 
 public final class SimpleHomesGameTests {
     private SimpleHomesGameTests() {}
@@ -39,7 +44,10 @@ public final class SimpleHomesGameTests {
             BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
             HomeLocation home =
                     new HomeLocation(
-                            helper.getLevel().dimension().identifier(), homePosition, 45.0F, 0.0F);
+                            helper.getLevel().dimension().identifier(),
+                            Vec3.atBottomCenterOf(homePosition),
+                            45.0F,
+                            0.0F);
             helper.assertTrue(
                     data.setHome(player.getUUID(), "base", home, 1) == HomeData.SetResult.CREATED,
                     "The first named home must be created");
@@ -67,7 +75,10 @@ public final class SimpleHomesGameTests {
             BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
             HomeLocation home =
                     new HomeLocation(
-                            helper.getLevel().dimension().identifier(), homePosition, 0.0F, 0.0F);
+                            helper.getLevel().dimension().identifier(),
+                            Vec3.atBottomCenterOf(homePosition),
+                            0.0F,
+                            0.0F);
             data.setHome(owner.getUUID(), "base", home, 10);
             data.setHome(owner.getUUID(), "mine", home, 10);
             helper.assertTrue(
@@ -102,8 +113,15 @@ public final class SimpleHomesGameTests {
                     "A valid mixed-case home must be created");
             HomeLocation home = data.getHome(player.getUUID(), "base_1").orElseThrow();
             helper.assertTrue(
-                    home.position().equals(target) && home.yaw() == 70.0F && home.pitch() == -15.0F,
-                    "The command must save block position and rotation");
+                    home.position()
+                                    .equals(
+                                            new Vec3(
+                                                    target.getX() + 0.25D,
+                                                    target.getY(),
+                                                    target.getZ() + 0.75D))
+                            && home.yaw() == 70.0F
+                            && home.pitch() == -15.0F,
+                    "The command must save the exact position and rotation");
             helper.assertTrue(
                     execute(helper, player, "sethome bad.name") == 0,
                     "Invalid characters must be rejected");
@@ -124,10 +142,10 @@ public final class SimpleHomesGameTests {
                     execute(helper, player, "home BASE_1") == 1,
                     "Home lookup must be case-insensitive");
             helper.assertTrue(
-                    player.getX() == target.getX() + 0.5D
+                    player.getX() == target.getX() + 0.25D
                             && player.getY() == target.getY()
-                            && player.getZ() == target.getZ() + 0.5D,
-                    "The home command must restore the saved block's horizontal center");
+                            && player.getZ() == target.getZ() + 0.75D,
+                    "The home command must restore the saved position");
             helper.assertTrue(
                     execute(helper, player, "home missing") == 0, "A missing home must fail");
         }
@@ -144,6 +162,7 @@ public final class SimpleHomesGameTests {
             String guestTag = "simplehomes_" + guest.getUUID();
             guest.addTag(guestTag);
             String guestSelector = "@a[tag=" + guestTag + "]";
+            ownerPlayer.moveTo(helper, new BlockPos(2, 1, 2));
             execute(helper, owner, "sethome base");
             execute(helper, owner, "sethome mine");
             String sharedHome = "homeof @a[tag=" + tag + "] base";
@@ -202,7 +221,10 @@ public final class SimpleHomesGameTests {
             ServerPlayer player = mock.player();
             HomeLocation home =
                     new HomeLocation(
-                            Level.NETHER.identifier(), new BlockPos(8, 80, -12), 65.0F, -25.0F);
+                            Level.NETHER.identifier(),
+                            new Vec3(8.5D, 80.0D, -11.5D),
+                            65.0F,
+                            -25.0F);
             helper.assertTrue(
                     HomeTeleportService.teleport(player, home, "Nether home") == 1,
                     "Cross-dimension teleport must succeed");
@@ -210,7 +232,7 @@ public final class SimpleHomesGameTests {
                     player.level() == nether, "Teleport must restore the saved dimension");
             helper.assertTrue(
                     player.getX() == 8.5D && player.getY() == 80.0D && player.getZ() == -11.5D,
-                    "Teleport must restore block position");
+                    "Teleport must restore the position");
             helper.assertTrue(
                     player.getYRot() == 65.0F && player.getXRot() == -25.0F,
                     "Teleport must restore rotation");
@@ -218,7 +240,7 @@ public final class SimpleHomesGameTests {
             HomeLocation missing =
                     new HomeLocation(
                             Identifier.fromNamespaceAndPath("simplehomes", "missing"),
-                            BlockPos.ZERO,
+                            Vec3.ZERO,
                             0.0F,
                             0.0F);
             helper.assertTrue(
@@ -317,7 +339,7 @@ public final class SimpleHomesGameTests {
             HomeLocation home =
                     new HomeLocation(
                             helper.getLevel().dimension().identifier(),
-                            helper.absolutePos(new BlockPos(2, 2, 2)),
+                            Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2))),
                             0.0F,
                             0.0F);
             helper.assertTrue(
@@ -326,6 +348,101 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     player.position().equals(before),
                     "A rejected teleport must not move the player");
+        }
+        helper.succeed();
+    }
+
+    public static void homesLandWhereThePlayerStood(GameTestHelper helper) {
+        List<Block> blocks = List.of(Blocks.FARMLAND, Blocks.DIRT_PATH, Blocks.SOUL_SAND);
+        List<Double> heights = List.of(15.0D / 16.0D, 15.0D / 16.0D, 14.0D / 16.0D);
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+            ServerPlayer player = mock.player();
+            for (int i = 0; i < blocks.size(); i++) {
+                BlockPos block = new BlockPos(1 + 2 * i, 1, 1);
+                helper.setBlock(block, blocks.get(i));
+                BlockPos absolute = helper.absolutePos(block);
+                Vec3 standing =
+                        new Vec3(
+                                absolute.getX() + 0.9D,
+                                absolute.getY() + heights.get(i),
+                                absolute.getZ() + 0.2D);
+                player.teleportTo(standing.x(), standing.y(), standing.z());
+                String name = "short_" + i;
+                helper.assertTrue(
+                        execute(helper, player, "sethome " + name) == 1,
+                        "/sethome must work on " + blocks.get(i));
+                player.teleportTo(standing.x() + 20.0D, standing.y(), standing.z() + 20.0D);
+                helper.assertTrue(
+                        execute(helper, player, "home " + name) == 1,
+                        "/home must work on " + blocks.get(i));
+                helper.assertTrue(
+                        player.position().equals(standing),
+                        "/home must land where /sethome stood on "
+                                + blocks.get(i)
+                                + ": expected "
+                                + standing
+                                + ", landed on "
+                                + player.position());
+            }
+        }
+        helper.succeed();
+    }
+
+    public static void obstructedHomesFailWithoutMovingThePlayer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBuiltOver")) {
+            ServerPlayer player = owner.player();
+            BlockPos home = new BlockPos(2, 1, 2);
+            owner.moveTo(helper, home);
+            helper.assertTrue(
+                    execute(helper, player, "sethome base") == 1, "/sethome must create the home");
+            BlockPos gap = new BlockPos(4, 1, 2);
+            owner.moveTo(helper, gap);
+            helper.assertTrue(
+                    execute(helper, player, "sethome gap") == 1, "/sethome must create the home");
+            helper.setBlock(home, Blocks.STONE);
+            helper.setBlock(home.above(), Blocks.STONE);
+            helper.setBlock(gap.above(), Blocks.STONE);
+            owner.moveTo(helper, new BlockPos(6, 1, 6));
+            Vec3 before = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home base") == 0, "An obstructed home must fail");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "An obstructed home must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'base' because it is obstructed.",
+                    0xFF5555);
+            helper.assertTrue(
+                    execute(helper, player, "home gap") == 1,
+                    "A one-block gap must still work, since the player can crawl there");
+
+            BlockPos buried = helper.absolutePos(home).offset(100_000, 0, 0).atY(level.getMinY());
+            helper.assertTrue(
+                    !level.hasChunk(
+                            SectionPos.blockToSectionCoord(buried.getX()),
+                            SectionPos.blockToSectionCoord(buried.getZ())),
+                    "The buried home's chunk must not be loaded before /home");
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "buried",
+                            new HomeLocation(
+                                    level.dimension().identifier(),
+                                    Vec3.atBottomCenterOf(buried),
+                                    0.0F,
+                                    0.0F),
+                            SimpleHomesConfig.maximumHomes());
+            Vec3 beforeBuried = player.position();
+            helper.assertTrue(
+                    execute(helper, player, "home buried") == 0,
+                    "A home inside the ground of a chunk nobody loaded must fail");
+            helper.assertTrue(
+                    player.position().equals(beforeBuried),
+                    "A home in an unloaded chunk must not move the player");
         }
         helper.succeed();
     }

@@ -45,6 +45,16 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void homesLandWhereThePlayerStood(GameTestHelper helper) {
+        SimpleHomesGameTests.homesLandWhereThePlayerStood(helper);
+    }
+
+    @GameTest
+    public void obstructedHomesFailWithoutMovingThePlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.obstructedHomesFailWithoutMovingThePlayer(helper);
+    }
+
+    @GameTest
     public void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
         SimpleHomesGameTests.homeofFindsOwnersWithoutAskingMojang(helper);
     }

@@ -47,6 +47,14 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::messagesUseModFeedbackAndHelpIsRegistered);
         register(
                 event,
+                "homes_land_where_the_player_stood",
+                SimpleHomesGameTests::homesLandWhereThePlayerStood);
+        register(
+                event,
+                "obstructed_homes_fail_without_moving_the_player",
+                SimpleHomesGameTests::obstructedHomesFailWithoutMovingThePlayer);
+        register(
+                event,
                 "homeof_finds_owners_without_asking_mojang",
                 SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
         register(

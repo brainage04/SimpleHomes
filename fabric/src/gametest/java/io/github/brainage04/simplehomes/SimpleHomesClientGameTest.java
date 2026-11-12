@@ -5,6 +5,7 @@ import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
 import java.util.Set;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -63,7 +64,8 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
                                                     .dimension()
                                                     .identifier()
                                                     .equals(home.dimension())
-                                            && player.blockPosition().equals(home.position()))
+                                            && player.blockPosition()
+                                                    .equals(BlockPos.containing(home.position())))
                                         return;
                                     throw new AssertionError(
                                             "The client /home command must restore the saved"

@@ -18,8 +18,8 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 
 ## Commands
 
-- `/sethome <name>` - creates a home at your current dimension, block position, yaw, and pitch, or updates an existing home with that name.
-- `/home <name>` - teleports you to one of your homes.
+- `/sethome <name>` - creates a home at your current dimension, position, yaw, and pitch, or updates an existing home with that name.
+- `/home <name>` - teleports you to one of your homes. If blocks now fill that spot, so that you could not even crawl there, the command fails and you stay where you are.
 - `/sharehome <name> <players>` - grants the selected online players access to one of your homes.
 - `/sharehome revoke <name> <players>` - revokes that access, also from players who are offline. It suggests the players who have access.
 - `/homeof <player> <name>` - teleports to that player's home when they have shared it with you, also while they are offline. The obstruction check of `/home` applies.
