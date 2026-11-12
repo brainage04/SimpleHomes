@@ -29,7 +29,7 @@ Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green bod
 
 ## Known limits
 
-- `/homeof` and `/sharehome revoke` look a typed name up only in the server's name cache (`usercache.json`), never through Mojang. The cache holds the players the server has seen recently and saves at most 1000 of them, so a player who has dropped out of it cannot be named until they join again. Selectors such as `@p` still match online players.
+- `/homeof` and `/sharehome revoke` look a typed name up only in the server's name cache (`usercache.json`), never through Mojang. The cache holds the players the server has seen recently and saves at most 1000 of them, so a player who has dropped out of it cannot be named until they join again. Operators can still pick online players with selectors such as `@p`.
 - When two cached players have the same name (one was renamed and another took the name), `/homeof` with that name refuses with "Select exactly one home owner." if both shared a home of that name with you, and `/sharehome revoke` with that name revokes both.
 
 ## Configuration
