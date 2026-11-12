@@ -63,6 +63,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesSavedWithOnlyABlockLandOnItsFloor);
         register(
                 event,
+                "homes_in_scaffolding_or_powder_snow_are_judged_where_they_are",
+                SimpleHomesGameTests::homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }

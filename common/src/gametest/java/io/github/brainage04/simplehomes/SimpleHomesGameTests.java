@@ -21,10 +21,15 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ScaffoldingBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public final class SimpleHomesGameTests {
@@ -509,6 +514,40 @@ public final class SimpleHomesGameTests {
                                 + expected
                                 + ", landed on "
                                 + player.position());
+            }
+        }
+        helper.succeed();
+    }
+
+    public static void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
+        BlockState scaffolding =
+                Blocks.SCAFFOLDING
+                        .defaultBlockState()
+                        .setValue(ScaffoldingBlock.DISTANCE, 0)
+                        .setValue(ScaffoldingBlock.BOTTOM, false);
+        for (int y = 1; y <= 4; y++) {
+            helper.setBlock(new BlockPos(2, y, 2), scaffolding);
+        }
+        helper.setBlock(new BlockPos(4, 1, 2), Blocks.STONE);
+        helper.setBlock(new BlockPos(4, 2, 2), Blocks.POWDER_SNOW);
+        Vec3 climbing = Vec3.upFromBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)), 0.5D);
+        Vec3 sunk = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 2, 2)));
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+            ServerPlayer player = mock.player();
+            player.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.LEATHER_BOOTS));
+            for (Vec3 standing : List.of(climbing, sunk)) {
+                HomeLocation home =
+                        new HomeLocation(
+                                helper.getLevel().dimension().identifier(), standing, 0.0F, 0.0F);
+                // From above, scaffolding and (in leather boots) powder snow are solid to the
+                // player where they stand now, but not at the home.
+                player.teleportTo(standing.x() + 20.0D, standing.y() + 10.0D, standing.z());
+                helper.assertTrue(
+                        HomeTeleportService.teleport(player, home, "test home") == 1,
+                        "A home at " + standing + " must work from above it");
+                helper.assertTrue(
+                        player.position().equals(standing),
+                        "The home must land at " + standing + ", landed on " + player.position());
             }
         }
         helper.succeed();

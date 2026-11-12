@@ -68,4 +68,9 @@ public final class SimpleHomesGameTest {
     public void homesSavedWithOnlyABlockLandOnItsFloor(GameTestHelper helper) {
         SimpleHomesGameTests.homesSavedWithOnlyABlockLandOnItsFloor(helper);
     }
+
+    @GameTest
+    public void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
+    }
 }

@@ -7,10 +7,11 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.vehicle.DismountHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class HomeTeleportService {
     private HomeTeleportService() {}
@@ -48,9 +49,9 @@ public final class HomeTeleportService {
 
     /**
      * Whether the player fits at {@code destination} in one of the poses vanilla tries when it puts
-     * a player down from a vehicle: the same block-collision and world-border test
-     * (DismountHelper.canDismountTo, Player.getDismountPoses). Liquids do not count, as in that
-     * test.
+     * a player down from a vehicle: the block-collision and world-border test of
+     * DismountHelper.canDismountTo (DismountHelper.java:42-50) over Player.getDismountPoses.
+     * Liquids do not count, as in that test.
      */
     private static boolean fits(ServerLevel level, ServerPlayer player, Vec3 destination) {
         // Block collisions treat a chunk that is not loaded as empty (BlockCollisions.java:86-87,
@@ -65,7 +66,26 @@ public final class HomeTeleportService {
                 level.getChunk(x, z);
             }
         }
+        // canDismountTo judges blocks from the player's current height, but scaffolding takes its
+        // shape from the height of whoever stands in it (ScaffoldingBlock.java:130-139,
+        // EntityCollisionContext.isAbove), so judge them at the destination height instead. That
+        // context has no entity, so powder snow lets the player through, as it does for vanilla's
+        // own stand-up check (PowderSnowBlock.java:116-131, DismountHelper.java:99).
+        CollisionContext atDestination = CollisionContext.positionContext(destination.y());
         return player.getDismountPoses().stream()
-                .anyMatch(pose -> DismountHelper.canDismountTo(level, destination, player, pose));
+                .map(pose -> player.getLocalBoundsForPose(pose).move(destination))
+                .anyMatch(
+                        box ->
+                                noBlockCollision(level, atDestination, box)
+                                        && level.getWorldBorder().isWithinBounds(box));
+    }
+
+    private static boolean noBlockCollision(ServerLevel level, CollisionContext context, AABB box) {
+        for (VoxelShape collision : level.getBlockCollisionsFromContext(context, box)) {
+            if (!collision.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 }
