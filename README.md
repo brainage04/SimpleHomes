@@ -13,7 +13,7 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 ## Getting started
 
 - Fabric Loader >=0.19.5 with Fabric API, or NeoForge >=26.3.0.99.
-- BrainageLib >=1.3.0 for the matching loader.
+- BrainageLib >=2.0.0 for the matching loader.
 - Install exactly one matching JAR on the server: the Fabric JAR with Fabric API, or the NeoForge JAR with NeoForge. Vanilla clients can join without installing the mod.
 
 ## Commands
