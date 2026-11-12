@@ -186,6 +186,8 @@ public final class SimpleHomesGameTests {
                     execute(helper, owner, "sharehome revoke base " + guestSelector) == 1,
                     "Revocation must remove access");
             helper.assertTrue(
+                    execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
+            helper.assertTrue(
                     execute(helper, owner, "homeof @a[tag=" + tag + "] base") == 1,
                     "Owners must retain access");
             helper.assertTrue(
