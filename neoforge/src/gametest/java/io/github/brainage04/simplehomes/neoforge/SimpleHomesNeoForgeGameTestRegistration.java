@@ -49,6 +49,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "homeof_finds_owners_without_asking_mojang",
                 SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
+        register(
+                event,
+                "owners_revoke_guests_who_are_offline",
+                SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }
 
     private static void register(

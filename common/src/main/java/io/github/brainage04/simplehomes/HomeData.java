@@ -101,6 +101,10 @@ public final class HomeData extends SavedData {
                 .toList();
     }
 
+    public List<UUID> guests(UUID owner, String name) {
+        return List.copyOf(shares.getOrDefault(owner, Map.of()).getOrDefault(name, Set.of()));
+    }
+
     public int grant(UUID owner, String name, Collection<UUID> guests) {
         if (getHome(owner, name).isEmpty()) return -1;
         Set<UUID> allowed =

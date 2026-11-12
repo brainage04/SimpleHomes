@@ -12,7 +12,6 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.github.brainage04.brainagelib.help.HelpPage;
 import java.util.Collection;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -64,8 +63,11 @@ public final class HomeCommandRegistration {
                                                         .then(
                                                                 argument(
                                                                                 "players",
-                                                                                EntityArgument
-                                                                                        .players())
+                                                                                GameProfileArgument
+                                                                                        .gameProfile())
+                                                                        .suggests(
+                                                                                HomeCommandRegistration
+                                                                                        ::suggestGuests)
                                                                         .executes(
                                                                                 HomeCommandRegistration
                                                                                         ::revokeNamedHome))))
@@ -175,9 +177,15 @@ public final class HomeCommandRegistration {
         ServerPlayer owner = context.getSource().getPlayerOrException();
         String name = normalizedName(rawName, owner);
         if (name == null) return 0;
-        Collection<ServerPlayer> players = EntityArgument.getPlayers(context, "players");
-        List<UUID> guests = players.stream().map(ServerPlayer::getUUID).toList();
         HomeData data = HomeData.get(context.getSource().getServer());
+        Collection<UUID> guests =
+                grant
+                        ? EntityArgument.getPlayers(context, "players").stream()
+                                .map(ServerPlayer::getUUID)
+                                .toList()
+                        : players(context, "players", data.guests(owner.getUUID(), name)).stream()
+                                .map(NameAndId::id)
+                                .toList();
         int changed =
                 grant
                         ? data.grant(owner.getUUID(), name, guests)
@@ -201,6 +209,20 @@ public final class HomeCommandRegistration {
         ServerPlayer player = context.getSource().getPlayerOrException();
         return SharedSuggestionProvider.suggest(
                 HomeData.get(context.getSource().getServer()).homeNames(player.getUUID()), builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestGuests(
+            CommandContext<CommandSourceStack> context, SuggestionsBuilder builder)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer owner = context.getSource().getPlayerOrException();
+        String name = StringArgumentType.getString(context, "name").toLowerCase(Locale.ROOT);
+        UserNameToIdResolver names = context.getSource().getServer().services().nameToIdCache();
+        return SharedSuggestionProvider.suggest(
+                HomeData.get(context.getSource().getServer()).guests(owner.getUUID(), name).stream()
+                        .flatMap(guest -> names.get(guest).stream())
+                        .map(NameAndId::name)
+                        .toList(),
+                builder);
     }
 
     /**

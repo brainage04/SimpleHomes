@@ -48,4 +48,9 @@ public final class SimpleHomesGameTest {
     public void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
         SimpleHomesGameTests.homeofFindsOwnersWithoutAskingMojang(helper);
     }
+
+    @GameTest
+    public void ownersRevokeGuestsWhoAreOffline(GameTestHelper helper) {
+        SimpleHomesGameTests.ownersRevokeGuestsWhoAreOffline(helper);
+    }
 }

@@ -1,6 +1,8 @@
 package io.github.brainage04.simplehomes;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.Suggestion;
 import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
@@ -385,6 +387,51 @@ public final class SimpleHomesGameTests {
             }
         }
         helper.succeed();
+    }
+
+    public static void ownersRevokeGuestsWhoAreOffline(GameTestHelper helper) {
+        GameProfile leaver = new GameProfile(UUID.randomUUID(), "HomesLeaver");
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sethome base") == 1,
+                    "/sethome must create the home");
+            try (GameTestPlayer guest = GameTestPlayer.join(helper, leaver)) {
+                String share = "sharehome base " + guest.player().getScoreboardName();
+                helper.assertTrue(
+                        execute(helper, owner.player(), share) == 1,
+                        "Sharing with an online player by name must work");
+            }
+            // With nothing typed after "base ", both branches parse equally far and brigadier keeps
+            // the first one registered (CommandDispatcher.parseNodes, brigadier 1.3.10):
+            // "/sharehome revoke <players>", which shares a home named "revoke" and suggests
+            // nothing.
+            List<String> suggested =
+                    suggestions(helper, owner.player(), "sharehome revoke base Homes");
+            helper.assertTrue(
+                    suggested.contains("HomesLeaver"),
+                    "Revoke must suggest the offline guest, got " + suggested);
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sharehome revoke base HomesLeaver") == 1,
+                    "An owner must be able to revoke a guest who is offline");
+            try (GameTestPlayer rejoined = GameTestPlayer.join(helper, leaver)) {
+                rejoined.moveTo(helper, new BlockPos(5, 1, 5));
+                helper.assertTrue(
+                        execute(helper, rejoined.player(), "homeof HomesKeeper base") == 0,
+                        "A revoked guest must be denied after rejoining");
+            }
+        }
+        helper.succeed();
+    }
+
+    private static List<String> suggestions(
+            GameTestHelper helper, ServerPlayer player, String input) {
+        var server = helper.getLevel().getServer();
+        var dispatcher = server.getCommands().getDispatcher();
+        var parse = dispatcher.parse(input, server.createCommandSourceStack().withEntity(player));
+        return dispatcher.getCompletionSuggestions(parse).join().getList().stream()
+                .map(Suggestion::getText)
+                .toList();
     }
 
     private static int execute(GameTestHelper helper, ServerPlayer player, String command) {
