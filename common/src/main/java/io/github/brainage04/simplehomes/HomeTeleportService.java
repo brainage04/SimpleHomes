@@ -22,7 +22,7 @@ public final class HomeTeleportService {
             SimpleHomes.FEEDBACK.error(player, "The dimension for %s is unavailable.", label);
             return 0;
         }
-        Vec3 destination = home.position();
+        Vec3 destination = home.destination(level);
         if (!fits(level, player, destination)) {
             SimpleHomes.FEEDBACK.error(
                     player, "Could not teleport to %s because it is obstructed.", label);

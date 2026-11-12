@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.SharedConstants;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.phys.Vec3;
@@ -207,12 +209,19 @@ class SimpleHomesTest {
     }
 
     @Test
-    void homesSavedWithOnlyABlockLandOnItsBottomCentre() {
+    void homesSavedWithOnlyABlockKeepThatBlock() {
         var json =
                 JsonParser.parseString(
                         "{\"dimension\": \"minecraft:overworld\", \"position\": [1, 2, 3]}");
         HomeLocation home = HomeLocation.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
-        assertEquals(new Vec3(1.5D, 2.0D, 3.5D), home.position());
+        assertEquals(Optional.of(new BlockPos(1, 2, 3)), home.position().right());
+        var saved =
+                HomeLocation.CODEC
+                        .encodeStart(JsonOps.INSTANCE, home)
+                        .getOrThrow()
+                        .getAsJsonObject();
+        assertEquals(json.getAsJsonObject().get("position"), saved.get("position"));
+        assertFalse(saved.has("pos"));
     }
 
     private static HomeData roundTrip(HomeData data) {

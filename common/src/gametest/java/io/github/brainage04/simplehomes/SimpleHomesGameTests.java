@@ -1,8 +1,10 @@
 package io.github.brainage04.simplehomes;
 
+import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestion;
+import com.mojang.serialization.JsonOps;
 import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
@@ -114,11 +116,13 @@ public final class SimpleHomesGameTests {
             HomeLocation home = data.getHome(player.getUUID(), "base_1").orElseThrow();
             helper.assertTrue(
                     home.position()
+                                    .left()
                                     .equals(
-                                            new Vec3(
-                                                    target.getX() + 0.25D,
-                                                    target.getY(),
-                                                    target.getZ() + 0.75D))
+                                            Optional.of(
+                                                    new Vec3(
+                                                            target.getX() + 0.25D,
+                                                            target.getY(),
+                                                            target.getZ() + 0.75D)))
                             && home.yaw() == 70.0F
                             && home.pitch() == -15.0F,
                     "The command must save the exact position and rotation");
@@ -445,6 +449,67 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     player.position().equals(beforeBuried),
                     "A home in an unloaded chunk must not move the player");
+        }
+        helper.succeed();
+    }
+
+    public static void homesSavedWithOnlyABlockLandOnItsFloor(GameTestHelper helper) {
+        List<Block> blocks =
+                List.of(
+                        Blocks.STONE,
+                        Blocks.STONE_SLAB,
+                        Blocks.MOSS_CARPET,
+                        Blocks.FARMLAND,
+                        Blocks.SOUL_SAND,
+                        Blocks.DIRT_PATH,
+                        Blocks.OAK_FENCE);
+        // Earlier builds saved the block the feet were in: the one above a full block or a fence,
+        // the block itself for the lower ones.
+        List<Integer> feetAbove = List.of(1, 0, 0, 0, 0, 0, 1);
+        List<Double> floors =
+                List.of(
+                        0.0D,
+                        0.5D,
+                        1.0D / 16.0D,
+                        15.0D / 16.0D,
+                        14.0D / 16.0D,
+                        15.0D / 16.0D,
+                        0.5D);
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+            ServerPlayer player = mock.player();
+            for (int i = 0; i < blocks.size(); i++) {
+                BlockPos block = new BlockPos(1 + 2 * (i % 3), 1, 1 + 2 * (i / 3));
+                helper.setBlock(block, blocks.get(i));
+                BlockPos feet = helper.absolutePos(block.above(feetAbove.get(i)));
+                HomeLocation home =
+                        HomeLocation.CODEC
+                                .parse(
+                                        JsonOps.INSTANCE,
+                                        JsonParser.parseString(
+                                                "{\"dimension\": \""
+                                                        + helper.getLevel().dimension().identifier()
+                                                        + "\", \"position\": ["
+                                                        + feet.getX()
+                                                        + ", "
+                                                        + feet.getY()
+                                                        + ", "
+                                                        + feet.getZ()
+                                                        + "]}"))
+                                .getOrThrow();
+                Vec3 expected = Vec3.upFromBottomCenterOf(feet, floors.get(i));
+                player.teleportTo(expected.x() + 20.0D, expected.y(), expected.z() + 20.0D);
+                helper.assertTrue(
+                        HomeTeleportService.teleport(player, home, "old home") == 1,
+                        "An old home on " + blocks.get(i) + " must still work");
+                helper.assertTrue(
+                        player.position().equals(expected),
+                        "An old home must land on top of "
+                                + blocks.get(i)
+                                + ": expected "
+                                + expected
+                                + ", landed on "
+                                + player.position());
+            }
         }
         helper.succeed();
     }

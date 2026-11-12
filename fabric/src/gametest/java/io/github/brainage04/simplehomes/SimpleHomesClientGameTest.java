@@ -65,7 +65,11 @@ public final class SimpleHomesClientGameTest implements FabricClientGameTest {
                                                     .identifier()
                                                     .equals(home.dimension())
                                             && player.blockPosition()
-                                                    .equals(BlockPos.containing(home.position())))
+                                                    .equals(
+                                                            BlockPos.containing(
+                                                                    home.position()
+                                                                            .left()
+                                                                            .orElseThrow())))
                                         return;
                                     throw new AssertionError(
                                             "The client /home command must restore the saved"

@@ -63,4 +63,9 @@ public final class SimpleHomesGameTest {
     public void ownersRevokeGuestsWhoAreOffline(GameTestHelper helper) {
         SimpleHomesGameTests.ownersRevokeGuestsWhoAreOffline(helper);
     }
+
+    @GameTest
+    public void homesSavedWithOnlyABlockLandOnItsFloor(GameTestHelper helper) {
+        SimpleHomesGameTests.homesSavedWithOnlyABlockLandOnItsFloor(helper);
+    }
 }

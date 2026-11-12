@@ -59,6 +59,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
         register(
                 event,
+                "homes_saved_with_only_a_block_land_on_its_floor",
+                SimpleHomesGameTests::homesSavedWithOnlyABlockLandOnItsFloor);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }
