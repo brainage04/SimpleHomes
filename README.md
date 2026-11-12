@@ -27,6 +27,11 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 
 Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice.
 
+## Known limits
+
+- `/homeof` and `/sharehome revoke` look a typed name up only in the server's name cache (`usercache.json`), never through Mojang. The cache holds the players the server has seen recently and saves at most 1000 of them, so a player who has dropped out of it cannot be named until they join again. Selectors such as `@p` still match online players.
+- When two cached players have the same name (one was renamed and another took the name), `/homeof` with that name refuses with "Select exactly one home owner." if both shared a home of that name with you, and `/sharehome revoke` with that name revokes both.
+
 ## Configuration
 
 The first launch creates `config/simplehomes.json`:
