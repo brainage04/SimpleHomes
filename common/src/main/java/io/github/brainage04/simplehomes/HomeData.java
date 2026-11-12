@@ -11,26 +11,29 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 public final class HomeData extends SavedData {
-    private static final Codec<UUID> UUID_CODEC =
-            Codec.STRING.xmap(UUID::fromString, UUID::toString);
     private static final Codec<Map<String, HomeLocation>> OWNER_HOMES_CODEC =
             Codec.unboundedMap(Codec.STRING, HomeLocation.CODEC);
     private static final Codec<Map<String, List<UUID>>> OWNER_SHARES_CODEC =
-            Codec.unboundedMap(Codec.STRING, UUID_CODEC.listOf());
+            Codec.unboundedMap(Codec.STRING, UUIDUtil.STRING_CODEC.listOf());
     private static final Codec<HomeData> CODEC =
             RecordCodecBuilder.create(
                     instance ->
                             instance.group(
-                                            Codec.unboundedMap(UUID_CODEC, OWNER_HOMES_CODEC)
+                                            Codec.unboundedMap(
+                                                            UUIDUtil.STRING_CODEC,
+                                                            OWNER_HOMES_CODEC)
                                                     .optionalFieldOf("homes", Map.of())
                                                     .forGetter(HomeData::homesSnapshot),
-                                            Codec.unboundedMap(UUID_CODEC, OWNER_SHARES_CODEC)
+                                            Codec.unboundedMap(
+                                                            UUIDUtil.STRING_CODEC,
+                                                            OWNER_SHARES_CODEC)
                                                     .optionalFieldOf("shares", Map.of())
                                                     .forGetter(HomeData::sharesSnapshot))
                                     .apply(instance, HomeData::new));

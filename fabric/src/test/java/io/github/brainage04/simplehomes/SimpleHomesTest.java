@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -177,6 +178,32 @@ class SimpleHomesTest {
         assertEquals(0, data.revoke(owner, "base", List.of(guest)));
         assertFalse(data.isDirty());
         assertTrue(data.allows(owner, "base", owner));
+    }
+
+    @Test
+    void aMalformedUuidDropsOnlyItsOwnEntry() {
+        String valid = "00000000-0000-0000-0000-000000000001";
+        String guest = "00000000-0000-0000-0000-000000000002";
+        String home = "{\"dimension\": \"minecraft:overworld\", \"position\": [1, 2, 3]}";
+        var json =
+                JsonParser.parseString(
+                        "{\"homes\": {\""
+                                + valid
+                                + "\": {\"base\": "
+                                + home
+                                + "}, \"not-a-uuid\": {\"base\": "
+                                + home
+                                + "}}, \"shares\": {\""
+                                + valid
+                                + "\": {\"base\": [\""
+                                + guest
+                                + "\", \"not-a-uuid\"]}}}");
+        var result = HomeData.TYPE.codec().parse(JsonOps.INSTANCE, json);
+        assertTrue(result.error().isPresent());
+        // The server loads the partial result (SavedDataStorage.java:93-95).
+        HomeData data = result.resultOrPartial(error -> {}).orElseThrow();
+        assertTrue(data.getHome(UUID.fromString(valid), "base").isPresent());
+        assertTrue(data.allows(UUID.fromString(valid), "base", UUID.fromString(guest)));
     }
 
     private static HomeData roundTrip(HomeData data) {
