@@ -7,7 +7,6 @@ import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -30,7 +29,8 @@ public final class SimpleHomesGameTests {
     }
 
     public static void namedHomesRespectLimitsAndTeleport(GameTestHelper helper) {
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+        ServerPlayer player = mock.player();
         HomeData data = HomeData.get(helper.getLevel().getServer());
         BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
         HomeLocation home =
@@ -49,12 +49,15 @@ public final class SimpleHomesGameTests {
         helper.assertTrue(
                 player.blockPosition().distSqr(homePosition) <= 1.0D,
                 "A saved home must restore its dimension and position");
+        }
         helper.succeed();
     }
 
     public static void homeSharingIsOwnerAndHomeScoped(GameTestHelper helper) {
-        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
-        ServerPlayer guest = helper.makeMockServerPlayerInLevel();
+        try (GameTestPlayer ownerPlayer = GameTestPlayer.mock(helper);
+                GameTestPlayer guestPlayer = GameTestPlayer.mock(helper)) {
+        ServerPlayer owner = ownerPlayer.player();
+        ServerPlayer guest = guestPlayer.player();
         HomeData data = HomeData.get(helper.getLevel().getServer());
         BlockPos homePosition = helper.absolutePos(new BlockPos(2, 2, 2));
         HomeLocation home =
@@ -77,11 +80,13 @@ public final class SimpleHomesGameTests {
         helper.assertTrue(
                 guest.blockPosition().distSqr(homePosition) <= 1.0D,
                 "The guest must reach the shared home");
+        }
         helper.succeed();
     }
 
     public static void commandsNormalizeNamesAndEnforceLimits(GameTestHelper helper) {
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+        ServerPlayer player = mock.player();
         HomeData data = HomeData.get(helper.getLevel().getServer());
         BlockPos target = helper.absolutePos(new BlockPos(2, 2, 2));
         player.teleportTo(target.getX() + 0.25D, target.getY(), target.getZ() + 0.75D);
@@ -119,19 +124,20 @@ public final class SimpleHomesGameTests {
                         && player.getZ() == target.getZ() + 0.5D,
                 "The home command must restore the saved block's horizontal center");
         helper.assertTrue(execute(helper, player, "home missing") == 0, "A missing home must fail");
+        }
         helper.succeed();
     }
 
     public static void sharingCommandsEnforceAndRevokeAccess(GameTestHelper helper) {
-        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
-        ServerPlayer guest = helper.makeMockServerPlayerInLevel();
-        var players = helper.getLevel().getServer().getPlayerList();
-        String tag = "simplehomes_" + owner.getUUID();
-        owner.addTag(tag);
-        String guestTag = "simplehomes_" + guest.getUUID();
-        guest.addTag(guestTag);
-        String guestSelector = "@a[tag=" + guestTag + "]";
-        try {
+        try (GameTestPlayer ownerPlayer = GameTestPlayer.mock(helper);
+                GameTestPlayer guestPlayer = GameTestPlayer.mock(helper)) {
+            ServerPlayer owner = ownerPlayer.player();
+            ServerPlayer guest = guestPlayer.player();
+            String tag = "simplehomes_" + owner.getUUID();
+            owner.addTag(tag);
+            String guestTag = "simplehomes_" + guest.getUUID();
+            guest.addTag(guestTag);
+            String guestSelector = "@a[tag=" + guestTag + "]";
             execute(helper, owner, "sethome base");
             execute(helper, owner, "sethome mine");
             String sharedHome = "homeof @a[tag=" + tag + "] base";
@@ -175,18 +181,15 @@ public final class SimpleHomesGameTests {
                     execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
                     "Revocation must apply to the home named 'revoke'");
             helper.succeed();
-        } finally {
-            players.remove(owner);
-            players.remove(guest);
         }
     }
 
     public static void teleportsAcrossDimensionsAndRejectsMissingDimensions(GameTestHelper helper) {
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
         var server = helper.getLevel().getServer();
         var nether = server.getLevel(Level.NETHER);
         helper.assertTrue(nether != null, "The test server must provide the Nether");
-        try {
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+            ServerPlayer player = mock.player();
             HomeLocation home =
                     new HomeLocation(
                             Level.NETHER.identifier(), new BlockPos(8, 80, -12), 65.0F, -25.0F);
@@ -215,8 +218,6 @@ public final class SimpleHomesGameTests {
                     player.level() == nether && player.position().equals(before),
                     "A failed teleport must not move the player");
             helper.succeed();
-        } finally {
-            player.teleportTo(helper.getLevel(), 0.5D, 80.0D, 0.5D, Set.of(), 0.0F, 0.0F, false);
         }
     }
 
@@ -299,7 +300,8 @@ public final class SimpleHomesGameTests {
     }
 
     public static void rejectedTeleportDoesNotReportSuccess(GameTestHelper helper) {
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
+        ServerPlayer player = mock.player();
         var before = player.position();
         player.discard();
         HomeLocation home =
@@ -313,6 +315,7 @@ public final class SimpleHomesGameTests {
                 "A teleport rejected by Minecraft must not return success");
         helper.assertTrue(
                 player.position().equals(before), "A rejected teleport must not move the player");
+        }
         helper.succeed();
     }
 
