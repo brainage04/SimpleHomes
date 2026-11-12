@@ -467,10 +467,13 @@ public final class SimpleHomesGameTests {
                         Blocks.FARMLAND,
                         Blocks.SOUL_SAND,
                         Blocks.DIRT_PATH,
-                        Blocks.OAK_FENCE);
+                        Blocks.OAK_FENCE,
+                        Blocks.STONE_SLAB,
+                        Blocks.AIR);
         // Earlier builds saved the block the feet were in: the one above a full block or a fence,
-        // the block itself for the lower ones.
-        List<Integer> feetAbove = List.of(1, 0, 0, 0, 0, 0, 1);
+        // the block itself for the lower ones. The last two have no floor in reach (above a bottom
+        // slab, and in mid-air as in creative flight), so they land on the block's bottom centre.
+        List<Integer> feetAbove = List.of(1, 0, 0, 0, 0, 0, 1, 1, 3);
         List<Double> floors =
                 List.of(
                         0.0D,
@@ -479,7 +482,9 @@ public final class SimpleHomesGameTests {
                         15.0D / 16.0D,
                         14.0D / 16.0D,
                         15.0D / 16.0D,
-                        0.5D);
+                        0.5D,
+                        0.0D,
+                        0.0D);
         try (GameTestPlayer mock = GameTestPlayer.mock(helper)) {
             ServerPlayer player = mock.player();
             for (int i = 0; i < blocks.size(); i++) {
