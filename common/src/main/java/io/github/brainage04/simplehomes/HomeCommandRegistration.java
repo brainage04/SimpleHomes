@@ -5,9 +5,11 @@ import static net.minecraft.commands.Commands.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import io.github.brainage04.brainagelib.help.HelpPage;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -34,10 +36,7 @@ public final class HomeCommandRegistration {
                                         .executes(HomeCommandRegistration::setHome)));
         dispatcher.register(
                 literal("home")
-                        .then(
-                                argument("name", StringArgumentType.word())
-                                        .suggests(HomeCommandRegistration::suggestOwnHomes)
-                                        .executes(HomeCommandRegistration::teleportHome)));
+                        .then(ownHomeName().executes(HomeCommandRegistration::teleportHome)));
         dispatcher.register(
                 literal("homeof")
                         .then(
@@ -59,58 +58,45 @@ public final class HomeCommandRegistration {
                                                                                 context, true,
                                                                                 "revoke")))
                                         .then(
-                                                argument("name", StringArgumentType.word())
-                                                        .suggests(
-                                                                HomeCommandRegistration
-                                                                        ::suggestOwnHomes)
+                                                ownHomeName()
                                                         .then(
                                                                 argument(
                                                                                 "players",
                                                                                 EntityArgument
                                                                                         .players())
                                                                         .executes(
-                                                                                context ->
-                                                                                        changeAccess(
-                                                                                                context,
-                                                                                                false,
-                                                                                                StringArgumentType
-                                                                                                        .getString(
-                                                                                                                context,
-                                                                                                                "name"))))))
+                                                                                HomeCommandRegistration
+                                                                                        ::revokeNamedHome))))
                         .then(
-                                argument("name", StringArgumentType.word())
-                                        .suggests(HomeCommandRegistration::suggestOwnHomes)
+                                ownHomeName()
                                         .then(
                                                 argument("players", EntityArgument.players())
                                                         .executes(
-                                                                context ->
-                                                                        changeAccess(
-                                                                                context,
-                                                                                true,
-                                                                                StringArgumentType
-                                                                                        .getString(
-                                                                                                context,
-                                                                                                "name"))))));
-        dispatcher.register(
-                literal("simplehomes")
-                        .executes(context -> showHelp(context.getSource()))
-                        .then(literal("help").executes(context -> showHelp(context.getSource()))));
+                                                                HomeCommandRegistration
+                                                                        ::grantNamedHome))));
+        HelpPage.create(SimpleHomes.FEEDBACK, "simplehomes")
+                .line("/sethome <name> - create or update a home where you stand")
+                .line("/home <name> - teleport to one of your homes")
+                .line("/sharehome <name> <players> - let players use one of your homes")
+                .line("/sharehome revoke <name> <players> - take that access away again")
+                .line("/homeof <player> <name> - teleport to a home someone shared with you")
+                .line("You can have up to %d homes.", SimpleHomesConfig.maximumHomes())
+                .register(dispatcher);
     }
 
-    private static int showHelp(CommandSourceStack source) {
-        SimpleHomes.FEEDBACK.neutral(source, "Player commands:");
-        SimpleHomes.FEEDBACK.neutral(
-                source, "/sethome <name> - create or update a home where you stand");
-        SimpleHomes.FEEDBACK.neutral(source, "/home <name> - teleport to one of your homes");
-        SimpleHomes.FEEDBACK.neutral(
-                source, "/sharehome <name> <players> - let players use one of your homes");
-        SimpleHomes.FEEDBACK.neutral(
-                source, "/sharehome revoke <name> <players> - take that access away again");
-        SimpleHomes.FEEDBACK.neutral(
-                source, "/homeof <player> <name> - teleport to a home someone shared with you");
-        SimpleHomes.FEEDBACK.neutral(
-                source, "You can have up to %d homes.", SimpleHomesConfig.maximumHomes());
-        return 1;
+    private static RequiredArgumentBuilder<CommandSourceStack, String> ownHomeName() {
+        return argument("name", StringArgumentType.word())
+                .suggests(HomeCommandRegistration::suggestOwnHomes);
+    }
+
+    private static int grantNamedHome(CommandContext<CommandSourceStack> context)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        return changeAccess(context, true, StringArgumentType.getString(context, "name"));
+    }
+
+    private static int revokeNamedHome(CommandContext<CommandSourceStack> context)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        return changeAccess(context, false, StringArgumentType.getString(context, "name"));
     }
 
     private static int setHome(CommandContext<CommandSourceStack> context)
