@@ -92,6 +92,15 @@ public final class HomeData extends SavedData {
                         .contains(guest);
     }
 
+    /** The owners whose home {@code name} {@code guest} may use, {@code guest} included. */
+    public List<UUID> ownersAllowing(String name, UUID guest) {
+        return homes.entrySet().stream()
+                .filter(entry -> entry.getValue().containsKey(name))
+                .map(Map.Entry::getKey)
+                .filter(owner -> allows(owner, name, guest))
+                .toList();
+    }
+
     public int grant(UUID owner, String name, Collection<UUID> guests) {
         if (getHome(owner, name).isEmpty()) return -1;
         Set<UUID> allowed =

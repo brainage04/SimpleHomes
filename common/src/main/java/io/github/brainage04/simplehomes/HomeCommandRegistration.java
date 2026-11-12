@@ -7,6 +7,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.context.ParsedCommandNode;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.github.brainage04.brainagelib.help.HelpPage;
@@ -22,6 +23,7 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
+import net.minecraft.server.players.UserNameToIdResolver;
 
 public final class HomeCommandRegistration {
     private static final Pattern VALID_NAME = Pattern.compile("[a-z0-9_-]{1,32}");
@@ -142,24 +144,26 @@ public final class HomeCommandRegistration {
     private static int teleportOtherHome(CommandContext<CommandSourceStack> context)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer guest = context.getSource().getPlayerOrException();
-        Collection<NameAndId> owners = GameProfileArgument.getGameProfiles(context, "player");
-        if (owners.size() != 1) {
-            SimpleHomes.FEEDBACK.error(guest, "Select exactly one home owner.");
-            return 0;
-        }
-        NameAndId owner = owners.iterator().next();
         String name = normalizedName(StringArgumentType.getString(context, "name"), guest);
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
+        Collection<NameAndId> owners =
+                players(context, "player", data.ownersAllowing(name, guest.getUUID()));
+        if (owners.size() > 1) {
+            SimpleHomes.FEEDBACK.error(guest, "Select exactly one home owner.");
+            return 0;
+        }
+        NameAndId owner = owners.isEmpty() ? null : owners.iterator().next();
+        if (owner == null || !data.allows(owner.id(), name, guest.getUUID())) {
+            String ownerName = owner == null ? typedArgument(context, "player") : owner.name();
+            SimpleHomes.FEEDBACK.error(
+                    guest, "%s has not shared home '%s' with you.", ownerName, name);
+            return 0;
+        }
         HomeLocation home = data.getHome(owner.id(), name).orElse(null);
         if (home == null) {
             SimpleHomes.FEEDBACK.error(
                     guest, "%s does not have a home named '%s'.", owner.name(), name);
-            return 0;
-        }
-        if (!data.allows(owner.id(), name, guest.getUUID())) {
-            SimpleHomes.FEEDBACK.error(
-                    guest, "%s has not shared home '%s' with you.", owner.name(), name);
             return 0;
         }
         return HomeTeleportService.teleport(guest, home, owner.name() + "'s home '" + name + "'");
@@ -197,6 +201,43 @@ public final class HomeCommandRegistration {
         ServerPlayer player = context.getSource().getPlayerOrException();
         return SharedSuggestionProvider.suggest(
                 HomeData.get(context.getSource().getServer()).homeNames(player.getUUID()), builder);
+    }
+
+    /**
+     * The players a {@link GameProfileArgument} names: a selector's online players, or those of
+     * {@code candidates} whose cached name is the name typed.
+     */
+    private static Collection<NameAndId> players(
+            CommandContext<CommandSourceStack> context,
+            String argument,
+            Collection<UUID> candidates)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        GameProfileArgument.Result result =
+                context.getArgument(argument, GameProfileArgument.Result.class);
+        if (result instanceof GameProfileArgument.SelectorResult) {
+            return result.getNames(context.getSource());
+        }
+        // A typed name never goes through GameProfileArgument.getNames: for a name the server has
+        // not cached it asks Mojang's profile service on the server thread and writes the answer to
+        // usercache.json (GameProfileArgument.java:63-66, CachedUserNameToIdResolver.java:63-69,
+        // 118-120). The lookup by UUID only reads the cache
+        // (CachedUserNameToIdResolver.java:135-143).
+        String typed = typedArgument(context, argument);
+        UserNameToIdResolver names = context.getSource().getServer().services().nameToIdCache();
+        return candidates.stream()
+                .flatMap(candidate -> names.get(candidate).stream())
+                .filter(player -> player.name().equalsIgnoreCase(typed))
+                .toList();
+    }
+
+    private static String typedArgument(
+            CommandContext<CommandSourceStack> context, String argument) {
+        for (ParsedCommandNode<CommandSourceStack> node : context.getNodes()) {
+            if (node.getNode().getName().equals(argument)) {
+                return node.getRange().get(context.getInput());
+            }
+        }
+        throw new IllegalArgumentException("No argument named " + argument);
     }
 
     private static String normalizedName(String rawName, ServerPlayer player) {

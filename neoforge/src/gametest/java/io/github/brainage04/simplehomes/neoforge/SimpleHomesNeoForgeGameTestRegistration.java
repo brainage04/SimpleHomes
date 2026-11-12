@@ -45,6 +45,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "messages_use_mod_feedback_and_help_is_registered",
                 SimpleHomesGameTests::messagesUseModFeedbackAndHelpIsRegistered);
+        register(
+                event,
+                "homeof_finds_owners_without_asking_mojang",
+                SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
     }
 
     private static void register(

@@ -43,4 +43,9 @@ public final class SimpleHomesGameTest {
     public void messagesUseModFeedbackAndHelpIsRegistered(GameTestHelper helper) {
         SimpleHomesGameTests.messagesUseModFeedbackAndHelpIsRegistered(helper);
     }
+
+    @GameTest
+    public void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
+        SimpleHomesGameTests.homeofFindsOwnersWithoutAskingMojang(helper);
+    }
 }

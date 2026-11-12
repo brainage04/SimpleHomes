@@ -7,7 +7,9 @@ import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
@@ -163,10 +165,14 @@ public final class SimpleHomesGameTests {
                     execute(helper, owner, "sharehome revoke base " + guestSelector) == 1,
                     "Revocation must remove access");
             helper.assertTrue(
-                    execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
-            helper.assertTrue(
                     execute(helper, owner, "homeof @a[tag=" + tag + "] base") == 1,
                     "Owners must retain access");
+            helper.assertTrue(
+                    execute(helper, owner, "homeof @a[tag=" + tag + "] missing") == 0,
+                    "An owner's missing home must fail");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a base") == 0,
+                    "A selector that matches several players must be refused");
             helper.assertTrue(
                     execute(helper, owner, "sethome revoke") == 1,
                     "'revoke' must remain a valid home name");
@@ -318,6 +324,65 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     player.position().equals(before),
                     "A rejected teleport must not move the player");
+        }
+        helper.succeed();
+    }
+
+    public static void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
+        HomeData data = HomeData.get(helper.getLevel().getServer());
+        try (GameTestPlayer guest = GameTestPlayer.join(helper, "HomesVisitor")) {
+            ServerPlayer visitor = guest.player();
+            guest.moveTo(helper, new BlockPos(1, 1, 1));
+            try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesAway")) {
+                owner.moveTo(helper, new BlockPos(3, 1, 3));
+                helper.assertTrue(
+                        execute(helper, owner.player(), "sethome base") == 1,
+                        "/sethome must create the home");
+                helper.assertTrue(
+                        execute(helper, owner.player(), "sharehome base HomesVisitor") == 1,
+                        "Sharing with an online player by name must work");
+            }
+            helper.assertTrue(
+                    execute(helper, visitor, "homeof HomesAway base") == 1,
+                    "A guest must reach the shared home of an owner who is offline");
+
+            UUID unknown = UUIDUtil.createOfflinePlayerUUID("HomesNeverSeen");
+            guest.moveTo(helper, new BlockPos(1, 1, 1));
+            data.setHome(unknown, "base", HomeLocation.from(visitor), 10);
+            data.grant(unknown, "base", List.of(visitor.getUUID()));
+            guest.moveTo(helper, new BlockPos(5, 1, 5));
+            Vec3 before = visitor.position();
+            guest.clearMessages();
+            helper.assertTrue(
+                    execute(helper, visitor, "homeof HomesNeverSeen base") == 0,
+                    "A name the server has not cached must not be looked up");
+            helper.assertTrue(
+                    visitor.position().equals(before), "An unknown owner must not move the guest");
+            assertMessage(
+                    helper,
+                    guest,
+                    "[SimpleHomes] HomesNeverSeen has not shared home 'base' with you.",
+                    0xFF5555);
+
+            try (GameTestPlayer hider = GameTestPlayer.join(helper, "HomesHider")) {
+                hider.moveTo(helper, new BlockPos(3, 1, 1));
+                helper.assertTrue(
+                        execute(helper, hider.player(), "sethome base") == 1,
+                        "/sethome must create the home");
+                guest.clearMessages();
+                execute(helper, visitor, "homeof HomesHider base");
+                String unshared = guest.messageTexts().getLast();
+                guest.clearMessages();
+                execute(helper, visitor, "homeof HomesHider vault");
+                String missing = guest.messageTexts().getLast();
+                helper.assertTrue(
+                        missing.equals(unshared.replace("'base'", "'vault'")),
+                        "An unshared home and a missing one must give the same answer, got \""
+                                + unshared
+                                + "\" and \""
+                                + missing
+                                + "\"");
+            }
         }
         helper.succeed();
     }
