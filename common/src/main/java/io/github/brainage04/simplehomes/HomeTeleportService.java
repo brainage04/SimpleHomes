@@ -34,17 +34,22 @@ public final class HomeTeleportService {
             return arrive(player, level, home, label) ? 1 : 0;
         }
         // The checks below read blocks, so the chunk has to be loaded first, and loading it here
-        // would generate it on the server thread. Vanilla loads a chunk it must inspect without
-        // blocking instead (PlayerSpawnFinder.java:114-121); the answer reaches the player from the
-        // callback a few ticks later, and the command reports that it was accepted.
+        // would generate it on the server thread. A ticket loads it off the server thread
+        // instead, as vanilla's own spawn search does for a chunk it must inspect
+        // (PlayerSpawnFinder.java:114-121); the answer reaches the player from the callback a few
+        // ticks later, and the command reports that it was accepted.
         load(level, unloaded)
                 .whenCompleteAsync(
                         (ignored, failure) -> {
-                            if (failure != null) {
-                                SimpleHomes.FEEDBACK.error(
-                                        player, "Could not teleport to %s.", label);
-                            } else if (!player.hasDisconnected()) {
-                                arrive(player, level, home, label);
+                            try {
+                                if (failure != null) {
+                                    SimpleHomes.FEEDBACK.error(
+                                            player, "Could not teleport to %s.", label);
+                                } else if (!player.hasDisconnected()) {
+                                    arrive(player, level, home, label);
+                                }
+                            } finally {
+                                release(level, unloaded);
                             }
                         },
                         level.getServer());
@@ -99,11 +104,13 @@ public final class HomeTeleportService {
     }
 
     /**
-     * Loads {@code chunks} to full without blocking the server thread, the way vanilla's spawn
-     * search loads the chunk it is about to inspect (PlayerSpawnFinder.java:114-121). The ticket
-     * holds the chunk until its load finishes and then expires, because it can only expire once the
-     * chunk is unloaded or ready for saving (TicketStorage.java:290-300); TicketType.FORCED would
-     * keep the chunk loaded for good.
+     * Loads {@code chunks} to full without blocking the server thread, and returns the futures that
+     * complete when they are there (ServerChunkCache.addTicketAndLoadWithRadius,
+     * ServerChunkCache.java:479-495). PLAYER_LOADING is the ticket type a player's own chunk
+     * position uses and never expires (TicketType.java:20), so the load cannot be abandoned half
+     * way; SPAWN_SEARCH expires after one tick (TicketType.java:18) and a chunk that is ready for
+     * saving then loses it (TicketStorage.java:291-300) long before a cold chunk has generated,
+     * which leaves the future pending forever. {@link #release} gives the ticket back.
      */
     private static CompletableFuture<?> load(ServerLevel level, List<ChunkPos> chunks) {
         CompletableFuture<?>[] loads =
@@ -112,9 +119,16 @@ public final class HomeTeleportService {
                                 pos ->
                                         level.getChunkSource()
                                                 .addTicketAndLoadWithRadius(
-                                                        TicketType.SPAWN_SEARCH, pos, 0))
+                                                        TicketType.PLAYER_LOADING, pos, 0))
                         .toArray(CompletableFuture<?>[]::new);
         return CompletableFuture.allOf(loads);
+    }
+
+    /** Gives back the tickets {@link #load} took, so they do not keep the chunks loaded. */
+    private static void release(ServerLevel level, List<ChunkPos> chunks) {
+        for (ChunkPos pos : chunks) {
+            level.getChunkSource().removeTicketWithRadius(TicketType.PLAYER_LOADING, pos, 0);
+        }
     }
 
     /**
