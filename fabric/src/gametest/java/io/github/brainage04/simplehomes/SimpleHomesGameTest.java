@@ -74,16 +74,15 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
 
-    // The GameTest server ticks as fast as it can, 625 ticks a second on GitHub's runners and about
-    // 20 on a busy development machine (measured 14 Nov 2026), so the tick budget has to be large
-    // enough for the chunk load on the faster of the two: 20000 ticks are about half a minute
-    // there.
-    @GameTest(maxTicks = 20000)
+    // The GameTest server ticks as fast as it can, so a tick budget cannot bound a wait for a chunk
+    // load (20000 ticks took 3 s on one host and 90 s on another, 14 Nov 2026). These tests check
+    // 30 s of wall time themselves, and the budget is only a backstop above that.
+    @GameTest(maxTicks = 200000)
     public void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
         SimpleHomesGameTests.homesInUnloadedChunksTeleportAfterLoadingThem(helper);
     }
 
-    @GameTest(maxTicks = 20000)
+    @GameTest(maxTicks = 200000)
     public void aHomeInsideTheGroundOfAnUnloadedChunkStillFails(GameTestHelper helper) {
         SimpleHomesGameTests.aHomeInsideTheGroundOfAnUnloadedChunkStillFails(helper);
     }
@@ -93,7 +92,7 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.vanillaTpLeavesTheDestinationChunkUnloaded(helper);
     }
 
-    @GameTest(maxTicks = 20000)
+    @GameTest(maxTicks = 200000)
     public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
         SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
     }
