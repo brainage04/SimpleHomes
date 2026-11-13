@@ -92,7 +92,7 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.vanillaTpLeavesTheDestinationChunkUnloaded(helper);
     }
 
-    @GameTest(maxTicks = 1000000)
+    @GameTest
     public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
         SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
     }
