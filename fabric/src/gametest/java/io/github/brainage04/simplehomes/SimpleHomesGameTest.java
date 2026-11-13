@@ -76,7 +76,8 @@ public final class SimpleHomesGameTest {
 
     // The GameTest server ticks as fast as it can, 625 ticks a second on GitHub's runners and about
     // 20 on a busy development machine (measured 14 Nov 2026), so the tick budget has to be large
-    // enough for the chunk load on the faster of the two: 20000 ticks are about half a minute there.
+    // enough for the chunk load on the faster of the two: 20000 ticks are about half a minute
+    // there.
     @GameTest(maxTicks = 20000)
     public void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
         SimpleHomesGameTests.homesInUnloadedChunksTeleportAfterLoadingThem(helper);
