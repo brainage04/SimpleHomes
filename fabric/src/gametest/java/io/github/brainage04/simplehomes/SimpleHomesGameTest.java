@@ -78,4 +78,9 @@ public final class SimpleHomesGameTest {
     public void homesInUnloadedChunksTeleportLikeVanilla(GameTestHelper helper) {
         SimpleHomesGameTests.homesInUnloadedChunksTeleportLikeVanilla(helper);
     }
+
+    @GameTest
+    public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
+        SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
+    }
 }

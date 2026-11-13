@@ -694,6 +694,56 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    public static void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesOldFar")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            BlockPos far = helper.absolutePos(new BlockPos(2, 1, 2)).offset(100_000, 0, 24_000);
+            int chunkX = SectionPos.blockToSectionCoord(far.getX());
+            int chunkZ = SectionPos.blockToSectionCoord(far.getZ());
+            helper.assertTrue(
+                    !level.hasChunk(chunkX, chunkZ),
+                    "The home's chunk must not be loaded before /home");
+            // A home saved by a build that stored only the block, as
+            // homesSavedWithOnlyABlockLandOnItsFloor builds them.
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "old",
+                            HomeLocation.CODEC
+                                    .parse(
+                                            JsonOps.INSTANCE,
+                                            JsonParser.parseString(
+                                                    "{\"dimension\": \""
+                                                            + level.dimension().identifier()
+                                                            + "\", \"position\": ["
+                                                            + far.getX()
+                                                            + ", "
+                                                            + far.getY()
+                                                            + ", "
+                                                            + far.getZ()
+                                                            + "]}"))
+                                    .getOrThrow(),
+                            SimpleHomesConfig.maximumHomes());
+            Vec3 expected = Vec3.upFromBottomCenterOf(far, 0.0D);
+            helper.assertTrue(
+                    execute(helper, player, "home old") == 1,
+                    "An old home in a chunk nobody loaded must teleport, as vanilla /tp does");
+            helper.assertTrue(
+                    player.position().equals(expected),
+                    "It must land on its block's bottom centre while the chunk is unloaded:"
+                            + " expected "
+                            + expected
+                            + ", landed on "
+                            + player.position());
+            helper.assertTrue(
+                    !level.hasChunk(chunkX, chunkZ),
+                    "The command must not load the home's chunk itself");
+        }
+        helper.succeed();
+    }
+
     private static List<String> suggestions(
             GameTestHelper helper, ServerPlayer player, String input) {
         var server = helper.getLevel().getServer();

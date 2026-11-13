@@ -71,6 +71,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInUnloadedChunksTeleportLikeVanilla);
         register(
                 event,
+                "an_old_block_only_home_in_an_unloaded_chunk_lands_on_its_block",
+                SimpleHomesGameTests::anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }
