@@ -10,6 +10,7 @@ import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -450,8 +451,7 @@ public final class SimpleHomesGameTests {
                     .setHome(
                             player.getUUID(),
                             "far",
-                            new HomeLocation(
-                                    level.dimension().identifier(), expected, 0.0F, 0.0F),
+                            new HomeLocation(level.dimension().identifier(), expected, 0.0F, 0.0F),
                             SimpleHomesConfig.maximumHomes());
             helper.assertTrue(
                     execute(helper, player, "home far") == 1,
@@ -476,17 +476,17 @@ public final class SimpleHomesGameTests {
                     !level.hasChunk(otherChunkX, otherChunkZ),
                     "The /tp destination's chunk must not be loaded before /tp");
             Vec3 teleported = Vec3.atBottomCenterOf(other);
+            // Vec3Argument does not take the exponent notation Double.toString uses past 10^7.
             execute(
                     helper,
                     moved,
-                    "tp "
-                            + moved.getScoreboardName()
-                            + " "
-                            + teleported.x()
-                            + " "
-                            + teleported.y()
-                            + " "
-                            + teleported.z());
+                    String.format(
+                            Locale.ROOT,
+                            "tp %s %.1f %.1f %.1f",
+                            moved.getScoreboardName(),
+                            teleported.x(),
+                            teleported.y(),
+                            teleported.z()));
             helper.assertTrue(
                     moved.position().equals(teleported),
                     "Vanilla /tp must move the player to the unloaded chunk: expected "
