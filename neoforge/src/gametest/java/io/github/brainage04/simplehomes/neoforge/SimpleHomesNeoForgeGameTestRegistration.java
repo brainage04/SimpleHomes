@@ -67,6 +67,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre);
         register(
                 event,
+                "homes_in_unloaded_chunks_teleport_like_vanilla",
+                SimpleHomesGameTests::homesInUnloadedChunksTeleportLikeVanilla);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }

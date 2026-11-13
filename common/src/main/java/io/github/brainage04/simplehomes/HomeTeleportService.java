@@ -23,11 +23,14 @@ public final class HomeTeleportService {
             SimpleHomes.FEEDBACK.error(player, "The dimension for %s is unavailable.", label);
             return 0;
         }
-        Vec3 destination = home.destination(level);
-        if (!fits(level, player, destination)) {
-            SimpleHomes.FEEDBACK.error(
-                    player, "Could not teleport to %s because it is obstructed.", label);
-            return 0;
+        Vec3 destination = home.destinationWithoutWorld();
+        if (chunksLoaded(level, player, destination)) {
+            destination = home.destination(level);
+            if (!fits(level, player, destination)) {
+                SimpleHomes.FEEDBACK.error(
+                        player, "Could not teleport to %s because it is obstructed.", label);
+                return 0;
+            }
         }
         boolean teleported =
                 player.teleportTo(
@@ -48,14 +51,16 @@ public final class HomeTeleportService {
     }
 
     /**
-     * Whether the player fits at {@code destination}: vanilla's check for a passenger getting off a
-     * mount (DismountHelper.canDismountTo, DismountHelper.java:42-50), block collisions and the
-     * world border in any of the player's dismount poses (Player.getDismountPoses), judged at the
-     * destination height. Liquids do not count, as in that check.
+     * Whether every chunk under the standing box at {@code destination} is loaded. Vanilla's /tp
+     * does not load or generate the destination itself: it moves the player, and the player's own
+     * position then adds the chunk tickets that generate the chunk (ServerChunkCache.move,
+     * ServerChunkCache.java:513-520, calls ChunkMap.move, ChunkMap.java:1064-1101, which calls
+     * DistanceManager.addPlayer, DistanceManager.java:109-116, and recentres the client's view in
+     * applyChunkTrackingView, ChunkMap.java:1112-1122). Reading a block here would generate the
+     * chunk on the server thread instead, so a chunk that nobody has loaded is left to the
+     * teleport, like /tp.
      */
-    private static boolean fits(ServerLevel level, ServerPlayer player, Vec3 destination) {
-        // Block collisions treat a chunk that is not loaded as empty (BlockCollisions.java:86-87,
-        // Level.getChunkForCollisions), so load the chunks under the standing box first.
+    private static boolean chunksLoaded(ServerLevel level, ServerPlayer player, Vec3 destination) {
         AABB standing = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
         for (int x = SectionPos.posToSectionCoord(standing.minX);
                 x <= SectionPos.posToSectionCoord(standing.maxX);
@@ -63,9 +68,21 @@ public final class HomeTeleportService {
             for (int z = SectionPos.posToSectionCoord(standing.minZ);
                     z <= SectionPos.posToSectionCoord(standing.maxZ);
                     z++) {
-                level.getChunk(x, z);
+                if (!level.hasChunk(x, z)) return false;
             }
         }
+        return true;
+    }
+
+    /**
+     * Whether the player fits at {@code destination}: vanilla's check for a passenger getting off a
+     * mount (DismountHelper.canDismountTo, DismountHelper.java:42-50), block collisions and the
+     * world border in any of the player's dismount poses (Player.getDismountPoses), judged at the
+     * destination height. Liquids do not count, as in that check.
+     */
+    private static boolean fits(ServerLevel level, ServerPlayer player, Vec3 destination) {
+        // Only called for loaded chunks: block collisions treat a chunk that is not loaded as
+        // empty (BlockCollisions.java:86-87, Level.getChunkForCollisions).
         // canDismountTo uses the player's own collision context, which shapes scaffolding and
         // powder snow by where the player stands now (ScaffoldingBlock.java:130-139,
         // PowderSnowBlock.java:116-131). A dismount happens at about that height and a teleport

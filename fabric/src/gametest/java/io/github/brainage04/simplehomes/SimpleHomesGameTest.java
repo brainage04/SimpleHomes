@@ -73,4 +73,9 @@ public final class SimpleHomesGameTest {
     public void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
+
+    @GameTest
+    public void homesInUnloadedChunksTeleportLikeVanilla(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInUnloadedChunksTeleportLikeVanilla(helper);
+    }
 }

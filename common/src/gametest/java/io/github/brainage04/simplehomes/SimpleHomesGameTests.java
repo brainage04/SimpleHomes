@@ -400,7 +400,6 @@ public final class SimpleHomesGameTests {
     }
 
     public static void obstructedHomesFailWithoutMovingThePlayer(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBuiltOver")) {
             ServerPlayer player = owner.player();
             BlockPos home = new BlockPos(2, 1, 2);
@@ -430,30 +429,73 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     execute(helper, player, "home gap") == 1,
                     "A one-block gap must still work, since the player can crawl there");
+        }
+        helper.succeed();
+    }
 
-            BlockPos buried = helper.absolutePos(home).offset(100_000, 0, 0).atY(level.getMinY());
+    public static void homesInUnloadedChunksTeleportLikeVanilla(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesFaraway");
+                GameTestPlayer vanilla = GameTestPlayer.join(helper, "HomesVanilla")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            BlockPos far = helper.absolutePos(new BlockPos(2, 1, 2)).offset(100_000, 0, 0);
+            int farChunkX = SectionPos.blockToSectionCoord(far.getX());
+            int farChunkZ = SectionPos.blockToSectionCoord(far.getZ());
             helper.assertTrue(
-                    !level.hasChunk(
-                            SectionPos.blockToSectionCoord(buried.getX()),
-                            SectionPos.blockToSectionCoord(buried.getZ())),
-                    "The buried home's chunk must not be loaded before /home");
+                    !level.hasChunk(farChunkX, farChunkZ),
+                    "The home's chunk must not be loaded before /home");
+            Vec3 expected = Vec3.atBottomCenterOf(far);
             HomeData.get(level.getServer())
                     .setHome(
                             player.getUUID(),
-                            "buried",
+                            "far",
                             new HomeLocation(
-                                    level.dimension().identifier(),
-                                    Vec3.atBottomCenterOf(buried),
-                                    0.0F,
-                                    0.0F),
+                                    level.dimension().identifier(), expected, 0.0F, 0.0F),
                             SimpleHomesConfig.maximumHomes());
-            Vec3 beforeBuried = player.position();
             helper.assertTrue(
-                    execute(helper, player, "home buried") == 0,
-                    "A home inside the ground of a chunk nobody loaded must fail");
+                    execute(helper, player, "home far") == 1,
+                    "A home in a chunk nobody loaded must teleport, as vanilla /tp does");
             helper.assertTrue(
-                    player.position().equals(beforeBuried),
-                    "A home in an unloaded chunk must not move the player");
+                    player.position().equals(expected),
+                    "The player must arrive at the home: expected "
+                            + expected
+                            + ", landed on "
+                            + player.position());
+            helper.assertTrue(
+                    !level.hasChunk(farChunkX, farChunkZ),
+                    "The command must not load the home's chunk itself, as /tp does not: the"
+                            + " player's own chunk ticket loads it");
+
+            ServerPlayer moved = vanilla.player();
+            vanilla.moveTo(helper, new BlockPos(4, 1, 4));
+            BlockPos other = helper.absolutePos(new BlockPos(4, 1, 4)).offset(100_000, 0, 20_000);
+            int otherChunkX = SectionPos.blockToSectionCoord(other.getX());
+            int otherChunkZ = SectionPos.blockToSectionCoord(other.getZ());
+            helper.assertTrue(
+                    !level.hasChunk(otherChunkX, otherChunkZ),
+                    "The /tp destination's chunk must not be loaded before /tp");
+            Vec3 teleported = Vec3.atBottomCenterOf(other);
+            execute(
+                    helper,
+                    moved,
+                    "tp "
+                            + moved.getScoreboardName()
+                            + " "
+                            + teleported.x()
+                            + " "
+                            + teleported.y()
+                            + " "
+                            + teleported.z());
+            helper.assertTrue(
+                    moved.position().equals(teleported),
+                    "Vanilla /tp must move the player to the unloaded chunk: expected "
+                            + teleported
+                            + ", landed on "
+                            + moved.position());
+            helper.assertTrue(
+                    !level.hasChunk(otherChunkX, otherChunkZ),
+                    "Vanilla /tp must not load the destination chunk either");
         }
         helper.succeed();
     }

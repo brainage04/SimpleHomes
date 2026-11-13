@@ -47,6 +47,16 @@ public record HomeLocation(
     }
 
     /**
+     * Where the player lands without reading the world: the exact position, or for a home that
+     * holds only a block, the bottom centre of that block. A floor lookup needs the chunk, and a
+     * teleport must not load a chunk the way /tp does not (HomeTeleportService), so a home in a
+     * chunk nobody has loaded lands here.
+     */
+    public Vec3 destinationWithoutWorld() {
+        return position.map(exact -> exact, block -> Vec3.upFromBottomCenterOf(block, 0.0D));
+    }
+
+    /**
      * Where the player lands in {@code level}: the exact position, or for a home that holds only a
      * block, on top of the floor in that block, by vanilla's floor-height rule
      * (BlockGetter.getBlockFloorHeight, BlockGetter.java:96-110), as /spawn in SpawnCommands does.
