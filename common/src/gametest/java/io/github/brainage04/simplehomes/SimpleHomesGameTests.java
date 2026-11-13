@@ -615,15 +615,14 @@ public final class SimpleHomesGameTests {
                         execute(helper, owner.player(), share) == 1,
                         "Sharing with an online player by name must work");
             }
-            // With nothing typed after "base ", both branches parse equally far and brigadier keeps
-            // the first one registered (CommandDispatcher.parseNodes, brigadier 1.3.10):
-            // "/sharehome revoke <players>", which shares a home named "revoke" and suggests
-            // nothing.
-            List<String> suggested =
-                    suggestions(helper, owner.player(), "sharehome revoke base Homes");
+            // Nothing is typed after the home name, so the completion has to come from the home
+            // branch itself; while "/sharehome revoke <players>" existed, brigadier kept that
+            // branch's suggestion provider instead and listed nothing.
+            List<String> suggested = suggestions(helper, owner.player(), "sharehome revoke base ");
             helper.assertTrue(
                     suggested.contains("HomesLeaver"),
-                    "Revoke must suggest the offline guest, got " + suggested);
+                    "Revoke must suggest the offline guest before anything is typed, got "
+                            + suggested);
             helper.assertTrue(
                     execute(helper, owner.player(), "sharehome revoke base HomesLeaver") == 1,
                     "An owner must be able to revoke a guest who is offline");
@@ -679,8 +678,9 @@ public final class SimpleHomesGameTests {
                     execute(helper, owner, "home revoke") == 1,
                     "A home saved as 'revoke' must still teleport");
             helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke " + guest.getScoreboardName()) == 1,
-                    "It must still be shareable through /sharehome revoke <players>");
+                    isUsageError(helper, owner, "sharehome revoke " + guest.getScoreboardName()),
+                    "Granting access to a home named 'revoke' has no command any more");
+            data.grant(owner.getUUID(), "revoke", List.of(guest.getUUID()));
             helper.assertTrue(
                     execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
                     "The guest must reach it");
@@ -728,6 +728,19 @@ public final class SimpleHomesGameTests {
         return dispatcher.getCompletionSuggestions(parse).join().getList().stream()
                 .map(Suggestion::getText)
                 .toList();
+    }
+
+    private static boolean isUsageError(
+            GameTestHelper helper, ServerPlayer player, String command) {
+        var server = helper.getLevel().getServer();
+        try {
+            server.getCommands()
+                    .getDispatcher()
+                    .execute(command, server.createCommandSourceStack().withEntity(player));
+            return false;
+        } catch (CommandSyntaxException exception) {
+            return true;
+        }
     }
 
     private static int execute(GameTestHelper helper, ServerPlayer player, String command) {

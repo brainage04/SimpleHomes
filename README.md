@@ -2,7 +2,7 @@
 
 SimpleHomes is a server-side only Fabric and NeoForge mod for Minecraft 26.3 that adds named, persistent homes with explicit per-home sharing.
 
-Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens. The name `revoke` is reserved by `/sharehome revoke` and `/sethome` refuses it with a message. A home that an older version saved under that name still works: `/home revoke` teleports to it and `/sharehome revoke <players>` and `/sharehome revoke revoke <players>` still share and unshare it, but `/sethome revoke` no longer moves it. Sharing one home does not expose any other home belonging to the same player.
+Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens. The name `revoke` is reserved by `/sharehome revoke`, and `/sethome` refuses it with a message. A home that an older version saved under that name still teleports with `/home revoke` and loses its guests with `/sharehome revoke revoke <players>`, but it cannot be shared with anyone new, because `/sharehome revoke` always reads the word after it as a home name. Sharing one home does not expose any other home belonging to the same player.
 
 ## Features
 

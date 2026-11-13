@@ -54,24 +54,6 @@ public final class HomeCommandRegistration {
                 literal("sharehome")
                         .then(
                                 literal("revoke")
-                                        // A home named 'revoke' cannot be reached the usual way,
-                                        // because brigadier parses this literal first. This branch
-                                        // keeps a home saved under that name by a build that still
-                                        // allowed it usable; it suggests nothing, so that a Tab
-                                        // after "/sharehome revoke " lists home names instead of
-                                        // the online players an entity argument would offer
-                                        // (A-0795).
-                                        .then(
-                                                argument("players", EntityArgument.players())
-                                                        .suggests(
-                                                                (context, builder) ->
-                                                                        Suggestions.empty())
-                                                        .executes(
-                                                                context ->
-                                                                        changeAccess(
-                                                                                context,
-                                                                                true,
-                                                                                RESERVED_NAME)))
                                         .then(
                                                 ownHomeName()
                                                         .then(
