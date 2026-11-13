@@ -73,4 +73,9 @@ public final class SimpleHomesGameTest {
     public void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
+
+    @GameTest
+    public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
+    }
 }

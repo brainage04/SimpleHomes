@@ -652,6 +652,69 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    public static void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesDangerous")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            HomeData data = HomeData.get(level.getServer());
+            BlockPos lava = helper.absolutePos(new BlockPos(4, 1, 2));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
+            data.setHome(
+                    player.getUUID(),
+                    "lava",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(lava),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            Vec3 before = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home lava") == 0, "A home in lava must be refused");
+            helper.assertTrue(
+                    player.position().equals(before), "A home in lava must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'lava' because it is in lava.",
+                    0xFF5555);
+
+            BlockPos overVoid = helper.absolutePos(new BlockPos(2, 1, 2)).offset(2_000, 0, 2_000);
+            level.getChunk(
+                    SectionPos.blockToSectionCoord(overVoid.getX()),
+                    SectionPos.blockToSectionCoord(overVoid.getZ()));
+            for (int y = level.getMinY(); y <= overVoid.getY(); y++) {
+                level.setBlockAndUpdate(
+                        new BlockPos(overVoid.getX(), y, overVoid.getZ()),
+                        Blocks.AIR.defaultBlockState());
+            }
+            data.setHome(
+                    player.getUUID(),
+                    "void",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(overVoid),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home void") == 0,
+                    "A home over the void must be refused");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home over the void must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'void' because it is over the void.",
+                    0xFF5555);
+        }
+        helper.succeed();
+    }
+
     private static List<String> suggestions(
             GameTestHelper helper, ServerPlayer player, String input) {
         var server = helper.getLevel().getServer();

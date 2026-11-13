@@ -19,10 +19,10 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 ## Commands
 
 - `/sethome <name>` – creates a home at your current dimension, position, yaw, and pitch, or updates an existing home with that name.
-- `/home <name>` – teleports you to one of your homes. If blocks now fill that spot, so that you could not even crawl there, the command fails and you stay where you are.
+- `/home <name>` – teleports you to one of your homes. If blocks now fill that spot, so that you could not even crawl there, or it is in lava or over the void, where no block lies below it down to the minimum build height, the command fails and you stay where you are.
 - `/sharehome <name> <players>` – grants the selected online players access to one of your homes.
 - `/sharehome revoke <name> <players>` – revokes that access, also from players who are offline. It suggests the players who have access.
-- `/homeof <player> <name>` – teleports to that player's home when they have shared it with you, also while they are offline. The obstruction check of `/home` applies.
+- `/homeof <player> <name>` – teleports to that player's home when they have shared it with you, also while they are offline. The same checks as `/home` apply.
 - `/simplehomes` or `/simplehomes help` – lists these commands and your home limit.
 
 Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice.
