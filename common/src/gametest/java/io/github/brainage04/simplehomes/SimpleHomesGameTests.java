@@ -685,11 +685,7 @@ public final class SimpleHomesGameTests {
                     execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
                     "The guest must reach it");
             helper.assertTrue(
-                    execute(
-                                    helper,
-                                    owner,
-                                    "sharehome revoke revoke "
-                                            + guest.getScoreboardName())
+                    execute(helper, owner, "sharehome revoke revoke " + guest.getScoreboardName())
                             == 1,
                     "Its access must still be revocable");
             helper.assertTrue(

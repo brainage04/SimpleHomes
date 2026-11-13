@@ -26,6 +26,7 @@ import net.minecraft.server.players.UserNameToIdResolver;
 
 public final class HomeCommandRegistration {
     private static final Pattern VALID_NAME = Pattern.compile("[a-z0-9_-]{1,32}");
+
     /** The word /sharehome uses for taking access away, so it cannot also be a home name. */
     private static final String RESERVED_NAME = "revoke";
 
