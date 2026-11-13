@@ -67,6 +67,18 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre);
         register(
                 event,
+                "revoke_is_refused_as_a_new_home_name",
+                SimpleHomesGameTests::revokeIsRefusedAsANewHomeName);
+        register(
+                event,
+                "a_home_saved_under_the_reserved_name_stays_usable",
+                SimpleHomesGameTests::aHomeSavedUnderTheReservedNameStaysUsable);
+        register(
+                event,
+                "sharehome_revoke_suggests_home_names_before_anything_is_typed",
+                SimpleHomesGameTests::sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }

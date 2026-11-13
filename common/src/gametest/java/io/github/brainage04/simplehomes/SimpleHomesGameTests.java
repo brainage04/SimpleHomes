@@ -205,21 +205,6 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     execute(helper, guest, "homeof @a base") == 0,
                     "A selector that matches several players must be refused");
-            helper.assertTrue(
-                    execute(helper, owner, "sethome revoke") == 1,
-                    "'revoke' must remain a valid home name");
-            helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke " + guestSelector) == 1,
-                    "A home named 'revoke' must be shareable");
-            helper.assertTrue(
-                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
-                    "The guest must reach the home named 'revoke'");
-            helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke revoke " + guestSelector) == 1,
-                    "Access to a home named 'revoke' must be revocable");
-            helper.assertTrue(
-                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
-                    "Revocation must apply to the home named 'revoke'");
             helper.succeed();
         }
     }
@@ -648,6 +633,93 @@ public final class SimpleHomesGameTests {
                         execute(helper, rejoined.player(), "homeof HomesKeeper base") == 0,
                         "A revoked guest must be denied after rejoining");
             }
+        }
+        helper.succeed();
+    }
+
+    public static void revokeIsRefusedAsANewHomeName(GameTestHelper helper) {
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesReserved")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "sethome revoke") == 0,
+                    "A home may not be named 'revoke'");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] The name 'revoke' is reserved by /sharehome revoke. Choose"
+                            + " another name.",
+                    0xFF5555);
+            helper.assertTrue(
+                    HomeData.get(helper.getLevel().getServer())
+                            .getHome(player.getUUID(), "revoke")
+                            .isEmpty(),
+                    "Nothing may be stored under the reserved name");
+        }
+        helper.succeed();
+    }
+
+    public static void aHomeSavedUnderTheReservedNameStaysUsable(GameTestHelper helper) {
+        try (GameTestPlayer ownerPlayer = GameTestPlayer.join(helper, "HomesOld");
+                GameTestPlayer guestPlayer = GameTestPlayer.join(helper, "HomesOldGuest")) {
+            ServerPlayer owner = ownerPlayer.player();
+            ServerPlayer guest = guestPlayer.player();
+            String tag = "simplehomes_" + owner.getUUID();
+            owner.addTag(tag);
+            ownerPlayer.moveTo(helper, new BlockPos(2, 1, 2));
+            // How a home saved by a build that still allowed the name is stored.
+            HomeData data = HomeData.get(helper.getLevel().getServer());
+            data.setHome(
+                    owner.getUUID(),
+                    "revoke",
+                    HomeLocation.from(owner),
+                    SimpleHomesConfig.maximumHomes());
+            helper.assertTrue(
+                    execute(helper, owner, "home revoke") == 1,
+                    "A home saved as 'revoke' must still teleport");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome revoke " + guest.getScoreboardName()) == 1,
+                    "It must still be shareable through /sharehome revoke <players>");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
+                    "The guest must reach it");
+            helper.assertTrue(
+                    execute(
+                                    helper,
+                                    owner,
+                                    "sharehome revoke revoke "
+                                            + guest.getScoreboardName())
+                            == 1,
+                    "Its access must still be revocable");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
+                    "The guest must be denied after the revocation");
+            ownerPlayer.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner, "sethome revoke") == 0,
+                    "The home can no longer be moved to the reserved name");
+            helper.assertTrue(
+                    data.getHome(owner.getUUID(), "revoke").isPresent(),
+                    "The stored home must survive the refused update");
+        }
+        helper.succeed();
+    }
+
+    public static void sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(
+            GameTestHelper helper) {
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesSuggests")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            helper.assertTrue(
+                    execute(helper, player, "sethome base") == 1, "/sethome must create the home");
+            helper.assertTrue(
+                    execute(helper, player, "sethome mine") == 1, "/sethome must create the home");
+            List<String> suggested = suggestions(helper, player, "sharehome revoke ");
+            helper.assertTrue(
+                    suggested.equals(List.of("base", "mine")),
+                    "/sharehome revoke must suggest the home names before anything is typed, got "
+                            + suggested);
         }
         helper.succeed();
     }

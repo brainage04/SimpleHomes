@@ -2,7 +2,7 @@
 
 SimpleHomes is a server-side only Fabric and NeoForge mod for Minecraft 26.3 that adds named, persistent homes with explicit per-home sharing.
 
-Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens. Sharing one home does not expose any other home belonging to the same player.
+Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens. The name `revoke` is reserved by `/sharehome revoke` and `/sethome` refuses it with a message. A home that an older version saved under that name still works: `/home revoke` teleports to it and `/sharehome revoke <players>` and `/sharehome revoke revoke <players>` still share and unshare it, but `/sethome revoke` no longer moves it. Sharing one home does not expose any other home belonging to the same player.
 
 ## Features
 
@@ -21,7 +21,7 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 - `/sethome <name>` – creates a home at your current dimension, position, yaw, and pitch, or updates an existing home with that name.
 - `/home <name>` – teleports you to one of your homes. If blocks now fill that spot, so that you could not even crawl there, the command fails and you stay where you are.
 - `/sharehome <name> <players>` – grants the selected online players access to one of your homes.
-- `/sharehome revoke <name> <players>` – revokes that access, also from players who are offline. It suggests the players who have access.
+- `/sharehome revoke <name> <players>` – revokes that access, also from players who are offline. It suggests the players who have access. After `/sharehome revoke ` the completion lists your home names.
 - `/homeof <player> <name>` – teleports to that player's home when they have shared it with you, also while they are offline. The obstruction check of `/home` applies.
 - `/simplehomes` or `/simplehomes help` – lists these commands and your home limit.
 

@@ -26,6 +26,8 @@ import net.minecraft.server.players.UserNameToIdResolver;
 
 public final class HomeCommandRegistration {
     private static final Pattern VALID_NAME = Pattern.compile("[a-z0-9_-]{1,32}");
+    /** The word /sharehome uses for taking access away, so it cannot also be a home name. */
+    private static final String RESERVED_NAME = "revoke";
 
     private HomeCommandRegistration() {}
 
@@ -51,13 +53,24 @@ public final class HomeCommandRegistration {
                 literal("sharehome")
                         .then(
                                 literal("revoke")
+                                        // A home named 'revoke' cannot be reached the usual way,
+                                        // because brigadier parses this literal first. This branch
+                                        // keeps a home saved under that name by a build that still
+                                        // allowed it usable; it suggests nothing, so that a Tab
+                                        // after "/sharehome revoke " lists home names instead of
+                                        // the online players an entity argument would offer
+                                        // (A-0795).
                                         .then(
                                                 argument("players", EntityArgument.players())
+                                                        .suggests(
+                                                                (context, builder) ->
+                                                                        Suggestions.empty())
                                                         .executes(
                                                                 context ->
                                                                         changeAccess(
-                                                                                context, true,
-                                                                                "revoke")))
+                                                                                context,
+                                                                                true,
+                                                                                RESERVED_NAME)))
                                         .then(
                                                 ownHomeName()
                                                         .then(
@@ -108,6 +121,14 @@ public final class HomeCommandRegistration {
         ServerPlayer player = context.getSource().getPlayerOrException();
         String name = normalizedName(StringArgumentType.getString(context, "name"), player);
         if (name == null) return 0;
+        if (name.equals(RESERVED_NAME)) {
+            SimpleHomes.FEEDBACK.error(
+                    player,
+                    "The name '%s' is reserved by /sharehome %s. Choose another name.",
+                    RESERVED_NAME,
+                    RESERVED_NAME);
+            return 0;
+        }
         HomeData.SetResult result =
                 HomeData.get(context.getSource().getServer())
                         .setHome(

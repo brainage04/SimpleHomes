@@ -73,4 +73,19 @@ public final class SimpleHomesGameTest {
     public void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
+
+    @GameTest
+    public void revokeIsRefusedAsANewHomeName(GameTestHelper helper) {
+        SimpleHomesGameTests.revokeIsRefusedAsANewHomeName(helper);
+    }
+
+    @GameTest
+    public void aHomeSavedUnderTheReservedNameStaysUsable(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeSavedUnderTheReservedNameStaysUsable(helper);
+    }
+
+    @GameTest
+    public void sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(GameTestHelper helper) {
+        SimpleHomesGameTests.sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(helper);
+    }
 }
