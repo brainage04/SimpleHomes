@@ -83,6 +83,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock);
         register(
                 event,
+                "homes_in_lava_or_over_the_void_fail_without_moving_the_player",
+                SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }

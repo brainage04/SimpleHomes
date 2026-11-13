@@ -5,14 +5,17 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -59,6 +62,16 @@ public final class HomeTeleportService {
     private static boolean arrive(
             ServerPlayer player, ServerLevel level, HomeLocation home, String label) {
         Vec3 destination = home.destination(level);
+        Deadly deadly = deadlyAt(level, destination);
+        if (deadly != Deadly.NONE) {
+            SimpleHomes.FEEDBACK.error(
+                    player,
+                    deadly == Deadly.LAVA
+                            ? "Could not teleport to %s because it is in lava."
+                            : "Could not teleport to %s because it is over the void.",
+                    label);
+            return false;
+        }
         if (!fits(level, player, destination)) {
             SimpleHomes.FEEDBACK.error(
                     player, "Could not teleport to %s because it is obstructed.", label);
@@ -161,5 +174,33 @@ public final class HomeTeleportService {
             }
         }
         return true;
+    }
+
+    /**
+     * Why the destination cannot be used: it is in lava, or it is over the void. Vanilla's own
+     * answer for a safe teleport destination is SpreadPlayersCommand.Pos.isSafe
+     * (SpreadPlayersCommand.java:364-368): the first block from the destination down to the level's
+     * minimum build height must exist, found by the scan in getSpawnY
+     * (SpreadPlayersCommand.java:344-362), and must not be a liquid. Running out of blocks before
+     * the minimum build height is the void. Lava is the liquid that kills, the one vanilla's lava
+     * damage names (FluidTags.LAVA, Entity.java:1772-1774); water is survivable, so a home in it is
+     * still usable.
+     */
+    private static Deadly deadlyAt(ServerLevel level, Vec3 destination) {
+        BlockPos feet = BlockPos.containing(destination);
+        BlockPos.MutableBlockPos pos = feet.mutable();
+        for (int y = feet.getY(); y >= level.getMinY(); y--) {
+            pos.setY(y);
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir()) continue;
+            return state.getFluidState().is(FluidTags.LAVA) ? Deadly.LAVA : Deadly.NONE;
+        }
+        return Deadly.VOID;
+    }
+
+    private enum Deadly {
+        NONE,
+        LAVA,
+        VOID
     }
 }

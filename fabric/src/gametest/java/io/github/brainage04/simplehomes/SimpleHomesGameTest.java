@@ -93,6 +93,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest(maxTicks = 1000000)
+    public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
     public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
         SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
     }
