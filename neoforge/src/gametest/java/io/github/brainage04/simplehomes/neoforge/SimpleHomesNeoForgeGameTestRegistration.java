@@ -67,8 +67,16 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre);
         register(
                 event,
-                "homes_in_unloaded_chunks_teleport_like_vanilla",
-                SimpleHomesGameTests::homesInUnloadedChunksTeleportLikeVanilla);
+                "homes_in_unloaded_chunks_teleport_after_loading_them",
+                SimpleHomesGameTests::homesInUnloadedChunksTeleportAfterLoadingThem);
+        register(
+                event,
+                "a_home_inside_the_ground_of_an_unloaded_chunk_still_fails",
+                SimpleHomesGameTests::aHomeInsideTheGroundOfAnUnloadedChunkStillFails);
+        register(
+                event,
+                "vanilla_tp_leaves_the_destination_chunk_unloaded",
+                SimpleHomesGameTests::vanillaTpLeavesTheDestinationChunkUnloaded);
         register(
                 event,
                 "an_old_block_only_home_in_an_unloaded_chunk_lands_on_its_block",

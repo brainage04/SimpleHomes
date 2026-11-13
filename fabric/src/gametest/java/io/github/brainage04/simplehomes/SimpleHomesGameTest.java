@@ -74,12 +74,22 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
 
-    @GameTest
-    public void homesInUnloadedChunksTeleportLikeVanilla(GameTestHelper helper) {
-        SimpleHomesGameTests.homesInUnloadedChunksTeleportLikeVanilla(helper);
+    @GameTest(maxTicks = 200)
+    public void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInUnloadedChunksTeleportAfterLoadingThem(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void aHomeInsideTheGroundOfAnUnloadedChunkStillFails(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInsideTheGroundOfAnUnloadedChunkStillFails(helper);
     }
 
     @GameTest
+    public void vanillaTpLeavesTheDestinationChunkUnloaded(GameTestHelper helper) {
+        SimpleHomesGameTests.vanillaTpLeavesTheDestinationChunkUnloaded(helper);
+    }
+
+    @GameTest(maxTicks = 200)
     public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
         SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
     }
