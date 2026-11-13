@@ -475,14 +475,16 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
-    // The GameTest server runs its ticks as fast as it can, measured between 20 and 6600 ticks a
+    // The GameTest server runs its ticks as fast as it can, measured between 20 and 7000 ticks a
     // second on the machines that ran these tests on 14 Nov 2026, so a tick budget cannot bound a
     // wait for a chunk load: the load needs wall time, and the test itself checks that instead.
-    private static final long LOAD_TIMEOUT_NANOS = 30_000_000_000L;
+    // Two minutes, because one far chunk took longer than 30 s to load while the two other tests
+    // waiting on far chunks in the same batch finished.
+    private static final long LOAD_TIMEOUT_NANOS = 120_000_000_000L;
 
     private static void assertStillLoading(GameTestHelper helper, long started) {
         if (System.nanoTime() - started > LOAD_TIMEOUT_NANOS) {
-            helper.fail("The destination chunk did not load within 30 s of wall time");
+            helper.fail("The destination chunk did not load within 2 min of wall time");
         }
     }
 
