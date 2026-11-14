@@ -29,6 +29,6 @@ side="BOTH"
 [[dependencies.simplehomes]]
 modId="brainagelib"
 type="required"
-versionRange="[${brainagelib_version},)"
+versionRange="[${brainagelib_version},3.0.0)"
 ordering="NONE"
 side="BOTH"

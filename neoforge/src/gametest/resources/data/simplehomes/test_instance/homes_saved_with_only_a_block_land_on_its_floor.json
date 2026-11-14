@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 20,
+  "type": "minecraft:function",
+  "function": "simplehomes:homes_saved_with_only_a_block_land_on_its_floor"
+}
