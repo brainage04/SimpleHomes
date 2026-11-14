@@ -277,14 +277,16 @@ public final class HomeTeleportService {
      * (SpreadPlayersCommand.java:344-362), and must not be a liquid. Running out of blocks before
      * the minimum build height is the void. Lava is the liquid that kills, the one vanilla's lava
      * damage names (FluidTags.LAVA, Entity.java:1772-1774); water is survivable, so a home in it is
-     * still usable. The player is in lava wherever any part of their box is, which the column
-     * below the centre of their feet can miss next to a lava pool: the game tests the box, shrunk
-     * by 0.001, against each fluid's height (Entity.java:4211-4213,
+     * still usable. The player is in lava wherever any part of their box is, which the column below
+     * the centre of their feet can miss next to a lava pool: the game tests the box, shrunk by
+     * 0.001, against each fluid's height (Entity.java:4211-4213,
      * EntityFluidInteraction.java:40-73).
      */
     private static Deadly deadlyAt(ServerLevel level, ServerPlayer player, Vec3 destination) {
         AABB box =
-                player.getBoundingBox().move(destination.subtract(player.position())).deflate(0.001);
+                player.getBoundingBox()
+                        .move(destination.subtract(player.position()))
+                        .deflate(0.001);
         for (BlockPos pos : BlockPos.betweenClosed(box)) {
             FluidState fluid = level.getFluidState(pos);
             if (fluid.is(FluidTags.LAVA) && pos.getY() + fluid.getHeight(level, pos) >= box.minY) {
