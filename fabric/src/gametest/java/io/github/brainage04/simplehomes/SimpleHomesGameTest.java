@@ -141,4 +141,24 @@ public final class SimpleHomesGameTest {
     public void aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(GameTestHelper helper) {
         SimpleHomesGameTests.aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(helper);
     }
+
+    @GameTest(maxTicks = 1000000)
+    public void aTicketAnotherModTookAwayIsTakenAgainBeforeArriving(GameTestHelper helper) {
+        SimpleHomesGameTests.aTicketAnotherModTookAwayIsTakenAgainBeforeArriving(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aFailedArrivalIsReportedAndGivesTheTicketBack(GameTestHelper helper) {
+        SimpleHomesGameTests.aFailedArrivalIsReportedAndGivesTheTicketBack(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(GameTestHelper helper) {
+        SimpleHomesGameTests.aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(GameTestHelper helper) {
+        SimpleHomesGameTests.aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(helper);
+    }
 }
