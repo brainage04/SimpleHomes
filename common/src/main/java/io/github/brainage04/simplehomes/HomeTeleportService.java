@@ -16,6 +16,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -285,11 +288,18 @@ public final class HomeTeleportService {
      * 1394-1396, 1426-1435).
      */
     private static Deadly deadlyAt(ServerLevel level, ServerPlayer player, Vec3 destination) {
+        DamageSource lavaDamage = level.damageSources().lava();
         // Lava does not hurt a creative or spectator player (Player.java:677-679), who only sinks
         // through it; the void's damage gets past that (DamageTypeTags.BYPASSES_INVULNERABILITY).
+        // Fire Resistance stops fire damage, lava's included (LivingEntity.java:1187-1189), but
+        // only while it lasts, and the player may still be in the lava when it ends.
+        MobEffectInstance fireResistance = player.getEffect(MobEffects.FIRE_RESISTANCE);
         boolean lavaHurts =
-                !player.getAbilities().invulnerable
-                        || level.damageSources().lava().is(DamageTypeTags.BYPASSES_INVULNERABILITY);
+                (!player.getAbilities().invulnerable
+                                || lavaDamage.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
+                        && !(fireResistance != null
+                                && fireResistance.isInfiniteDuration()
+                                && lavaDamage.is(DamageTypeTags.IS_FIRE));
         // The largest of the player's poses (Avatar.java:24-36): a player who crouches or crawls
         // now can stand up there, into lava that their present box would miss.
         AABB box = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
