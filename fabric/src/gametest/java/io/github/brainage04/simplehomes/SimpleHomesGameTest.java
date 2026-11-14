@@ -123,6 +123,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void aHomeInTheAirOverAHurtingDropFails(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInTheAirOverAHurtingDropFails(helper);
+    }
+
+    @GameTest
     public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
         SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
     }

@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 20,
+  "type": "minecraft:function",
+  "function": "simplehomes:a_home_in_the_air_over_a_hurting_drop_fails"
+}

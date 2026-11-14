@@ -1618,6 +1618,107 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * A home in the air fails for a survival player when the fall below it would hurt: four blocks
+     * onto stone, one block and a bit onto a stalagmite tip (2.5 blocks added and the damage
+     * doubled), and six blocks onto the floor, past the five block reach of the default safe fall
+     * distance. Three blocks onto stone, the safe fall distance, and four blocks into water still
+     * work, and so does the four block drop for a creative player and for one who may fly.
+     */
+    // deprecated-api: NeoForge-only deprecation of the field vanilla reads (Player.java:1437)
+    @SuppressWarnings("deprecation")
+    public static void aHomeInTheAirOverAHurtingDropFails(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner =
+                        GameTestPlayer.join(helper, "HomesHigh").gameMode(GameType.SURVIVAL);
+                GameTestPlayer creative =
+                        GameTestPlayer.join(helper, "HomesHighCreative")
+                                .gameMode(GameType.CREATIVE);
+                GameTestPlayer flier =
+                        GameTestPlayer.join(helper, "HomesHighFlier").gameMode(GameType.SURVIVAL)) {
+            for (BlockPos stone :
+                    List.of(
+                            new BlockPos(2, 0, 2),
+                            new BlockPos(2, 0, 4),
+                            new BlockPos(0, 0, 0),
+                            new BlockPos(4, 0, 4))) {
+                helper.setBlock(stone, Blocks.STONE);
+            }
+            // Pointed dripstone's default state is a stalagmite tip (SpeleothemBlock.java:63-65).
+            helper.setBlock(new BlockPos(0, 1, 0), Blocks.POINTED_DRIPSTONE);
+            helper.setBlock(new BlockPos(4, 1, 4), Blocks.WATER);
+            HomeData data = HomeData.get(level.getServer());
+            String[] names = {"high", "tip", "deep", "edge", "water"};
+            Vec3[] homes = {
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 5, 2))),
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(0, 3, 0))),
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 6, 0))),
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 4, 4))),
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 5, 4)))
+            };
+            for (GameTestPlayer joined : List.of(owner, creative, flier)) {
+                for (int index = 0; index < names.length; index++) {
+                    data.setHome(
+                            joined.player().getUUID(),
+                            names[index],
+                            new HomeLocation(
+                                    level.dimension().identifier(), homes[index], 0.0F, 0.0F),
+                            SimpleHomesConfig.maximumHomes());
+                }
+            }
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(5, 1, 5));
+            Vec3 before = player.position();
+            for (int index = 0; index < 3; index++) {
+                owner.clearMessages();
+                helper.assertTrue(
+                        execute(helper, player, "home " + names[index]) == 0,
+                        "A home over a hurting drop must be refused: " + names[index]);
+                helper.assertTrue(
+                        player.position().equals(before),
+                        "A home over a hurting drop must not move the player: " + names[index]);
+                assertMessage(
+                        helper,
+                        owner,
+                        "[SimpleHomes] Could not teleport to home '"
+                                + names[index]
+                                + "' because it is in the air above a long drop.",
+                        0xFF5555);
+            }
+            for (int index = 3; index < names.length; index++) {
+                owner.clearMessages();
+                helper.assertTrue(
+                        execute(helper, player, "home " + names[index]) == 1,
+                        "A home over a drop that does not hurt must still teleport: "
+                                + names[index]
+                                + ", got "
+                                + owner.messageTexts());
+                helper.assertTrue(
+                        player.position().equals(homes[index]),
+                        "The player must arrive at " + names[index] + ", got " + player.position());
+            }
+
+            ServerPlayer flying = flier.player();
+            flying.getAbilities().mayfly = true;
+            flying.onUpdateAbilities();
+            for (GameTestPlayer joined : List.of(creative, flier)) {
+                joined.moveTo(helper, new BlockPos(5, 1, 5));
+                helper.assertTrue(
+                        execute(helper, joined.player(), "home high") == 1,
+                        "A home over a drop must still take "
+                                + joined.player().getScoreboardName()
+                                + " there, got "
+                                + joined.messageTexts());
+                helper.assertTrue(
+                        joined.player().position().equals(homes[0]),
+                        joined.player().getScoreboardName()
+                                + " must arrive over the drop, got "
+                                + joined.player().position());
+            }
+        }
+        helper.succeed();
+    }
+
     public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.

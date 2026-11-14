@@ -106,6 +106,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock);
         register(
                 event,
+                "a_home_in_the_air_over_a_hurting_drop_fails",
+                SimpleHomesGameTests::aHomeInTheAirOverAHurtingDropFails);
+        register(
+                event,
                 "homes_in_lava_or_over_the_void_fail_without_moving_the_player",
                 SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
         register(
