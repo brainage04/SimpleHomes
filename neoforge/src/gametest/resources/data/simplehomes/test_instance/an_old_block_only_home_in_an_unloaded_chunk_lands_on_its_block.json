@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 1000000,
+  "type": "minecraft:function",
+  "function": "simplehomes:an_old_block_only_home_in_an_unloaded_chunk_lands_on_its_block"
+}
