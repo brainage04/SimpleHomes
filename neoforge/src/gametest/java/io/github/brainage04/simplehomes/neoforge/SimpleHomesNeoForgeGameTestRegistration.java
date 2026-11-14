@@ -102,6 +102,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack);
         register(
                 event,
+                "a_spot_over_two_chunks_loads_both_again_when_another_mod_takes_one",
+                SimpleHomesGameTests::aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }

@@ -121,4 +121,9 @@ public final class SimpleHomesGameTest {
     public void aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(GameTestHelper helper) {
         SimpleHomesGameTests.aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(helper);
     }
+
+    @GameTest(maxTicks = 1000000)
+    public void aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(GameTestHelper helper) {
+        SimpleHomesGameTests.aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(helper);
+    }
 }

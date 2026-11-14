@@ -547,7 +547,7 @@ public final class SimpleHomesGameTests {
         owner.moveTo(helper, new BlockPos(2, 1, 2));
         BlockPos buried =
                 helper.absolutePos(new BlockPos(2, 1, 2))
-                        .offset(100_000, 0, 0)
+                        .offset(100_000, 0, 192_000)
                         .atY(level.getMinY());
         int chunkX = SectionPos.blockToSectionCoord(buried.getX());
         int chunkZ = SectionPos.blockToSectionCoord(buried.getZ());
@@ -718,7 +718,7 @@ public final class SimpleHomesGameTests {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.
         GameTestPlayer owner = GameTestPlayer.join(helper, "HomesTicketTaken");
-        ChunkPos far = farChunk(helper, 96_000);
+        ChunkPos far = farChunk(helper, 216_000);
         helper.assertTrue(
                 level.getChunkSource().getChunkNow(far.x(), far.z()) == null,
                 "The chunk must not be loaded before the test");
@@ -729,7 +729,6 @@ public final class SimpleHomesGameTests {
                 owner.player(),
                 middleOf(far),
                 "the test spot",
-                List.of(far),
                 1,
                 () -> {
                     arrived[0] = true;
@@ -774,7 +773,6 @@ public final class SimpleHomesGameTests {
                 owner.player(),
                 middleOf(far),
                 "the test spot",
-                List.of(far),
                 1,
                 () -> {
                     throw new IllegalStateException("A GameTest arrival that fails on purpose");
@@ -801,6 +799,78 @@ public final class SimpleHomesGameTests {
                 .thenSucceed();
     }
 
+    private static boolean isFull(ServerLevel level, ChunkPos chunk) {
+        return level.getChunkSource().getChunkNow(chunk.x(), chunk.z()) != null;
+    }
+
+    public static void aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(
+            GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // Closed inside the final steps, which run after this method has returned.
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesTwoChunks");
+        ChunkPos west = farChunk(helper, 240_000);
+        ChunkPos east = new ChunkPos(west.x() + 1, west.z());
+        // On the edge between the two chunks, so the standing box lies over both.
+        Vec3 edge =
+                new Vec3(
+                        SectionPos.sectionToBlockCoord(east.x()),
+                        64.0D,
+                        SectionPos.sectionToBlockCoord(west.z(), 8) + 0.5D);
+        helper.assertTrue(
+                !isFull(level, west) && !isFull(level, east),
+                "The chunks must not be loaded before the test");
+        boolean[] arrived = new boolean[1];
+        boolean[] loadedOnArrival = new boolean[1];
+        HomeTeleportService.loadThenArrive(
+                level,
+                owner.player(),
+                edge,
+                "the test spot",
+                1,
+                () -> {
+                    arrived[0] = true;
+                    loadedOnArrival[0] = isFull(level, west) && isFull(level, east);
+                });
+        helper.assertTrue(
+                holdsLoadingTicket(level, west) && holdsLoadingTicket(level, east),
+                "The load must take a ticket on both chunks under the spot");
+        // Another mod's teleport waiting on the east chunk only ends and takes the shared ticket.
+        level.getChunkSource().removeTicketWithRadius(TicketType.PLAYER_LOADING, east, 0);
+        String refusal =
+                "[SimpleHomes] Could not teleport to the test spot because its chunk would not"
+                        + " stay loaded.";
+        long started = System.nanoTime();
+        helper.startSequence()
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    arrived[0] || owner.received(refusal),
+                                    "The teleport must arrive or give up");
+                        })
+                .thenExecute(
+                        () -> {
+                            List<String> messages = owner.messageTexts();
+                            owner.close();
+                            helper.assertTrue(
+                                    arrived[0],
+                                    "Both chunks must be loaded again, not given up on, got "
+                                            + messages);
+                            helper.assertTrue(
+                                    loadedOnArrival[0],
+                                    "The teleport must arrive only once both chunks are loaded");
+                        })
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    !holdsLoadingTicket(level, west)
+                                            && !holdsLoadingTicket(level, east),
+                                    "Both tickets must be given back");
+                        })
+                .thenSucceed();
+    }
+
     public static void aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         GameTestPlayer owner = GameTestPlayer.join(helper, "HomesLeavesDuringLoad");
@@ -811,7 +881,6 @@ public final class SimpleHomesGameTests {
                 owner.player(),
                 middleOf(far),
                 "the test spot",
-                List.of(far),
                 1,
                 () -> arrived[0] = true);
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
