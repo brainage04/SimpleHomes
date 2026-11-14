@@ -9,16 +9,31 @@ import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import io.netty.util.ReferenceCountUtil;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
@@ -41,6 +56,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import net.minecraft.world.phys.Vec3;
 
 public final class SimpleHomesGameTests {
@@ -1437,6 +1453,165 @@ public final class SimpleHomesGameTests {
                         })
                 .thenExecute(owner::close)
                 .thenSucceed();
+    }
+
+    public static void aMalformedPlayerKeyInTheSaveFileLosesOnlyThatEntry(GameTestHelper helper) {
+        UUID owner = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+        UUID guest = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+        UUID newcomer = UUID.fromString("00000000-0000-0000-0000-00000000000c");
+        CompoundTag homes = new CompoundTag();
+        homes.put(owner.toString(), savedHomes());
+        homes.put("not-a-uuid", savedHomes());
+        CompoundTag shares = new CompoundTag();
+        shares.put(owner.toString(), savedShares(guest.toString(), "not-a-uuid"));
+        shares.put("not-a-uuid", savedShares(guest.toString()));
+        Path folder = createDataFolder();
+        try {
+            Path file = writeHomesFile(folder, homes, shares);
+            try (SavedDataStorage storage = dataStorage(helper, folder)) {
+                // Another player's /sethome after the load, so closing the storage saves the file.
+                storage.computeIfAbsent(HomeData.TYPE)
+                        .setHome(
+                                newcomer,
+                                "base",
+                                new HomeLocation(
+                                        Level.OVERWORLD.identifier(), Vec3.ZERO, 0.0F, 0.0F),
+                                1);
+            }
+            CompoundTag saved = readTag(file).getCompoundOrEmpty("data");
+            helper.assertTrue(
+                    saved.getCompoundOrEmpty("homes")
+                            .keySet()
+                            .equals(Set.of(owner.toString(), newcomer.toString())),
+                    "Saving after a load with one malformed player key must keep the other"
+                            + " players' homes and drop only that key, saved "
+                            + saved);
+            try (SavedDataStorage storage = dataStorage(helper, folder)) {
+                HomeData data = storage.computeIfAbsent(HomeData.TYPE);
+                helper.assertTrue(
+                        data.getHome(owner, "base").isPresent()
+                                && data.getHome(owner, "old").isPresent(),
+                        "The other player's homes must survive the load and the save");
+                helper.assertTrue(
+                        data.allows(owner, "base", guest),
+                        "The other player's shares must survive the load and the save");
+            }
+        } finally {
+            deleteFolder(folder);
+        }
+        helper.succeed();
+    }
+
+    public static void anExistingSaveFileIsWrittenBackByteForByte(GameTestHelper helper) {
+        UUID owner = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+        UUID guest = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+        CompoundTag homes = new CompoundTag();
+        homes.put(owner.toString(), savedHomes());
+        CompoundTag shares = new CompoundTag();
+        shares.put(owner.toString(), savedShares(guest.toString()));
+        Path folder = createDataFolder();
+        try {
+            Path file = writeHomesFile(folder, homes, shares);
+            byte[] before = Files.readAllBytes(file);
+            try (SavedDataStorage storage = dataStorage(helper, folder)) {
+                storage.computeIfAbsent(HomeData.TYPE).setDirty();
+            }
+            byte[] after = Files.readAllBytes(file);
+            helper.assertTrue(
+                    Arrays.equals(before, after),
+                    "Loading and saving an existing homes file must write the same bytes, read "
+                            + readTag(file));
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        } finally {
+            deleteFolder(folder);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * One owner's homes as the game saves them: an exact position, and a home from a build that
+     * stored only a block. Fields go in the codec's order: "position" and "pitch" share a bucket of
+     * CompoundTag's HashMap, so their order in the file follows the order they were put in.
+     */
+    private static CompoundTag savedHomes() {
+        CompoundTag base = new CompoundTag();
+        base.putString("dimension", "minecraft:overworld");
+        ListTag pos = new ListTag();
+        pos.add(DoubleTag.valueOf(1.5D));
+        pos.add(DoubleTag.valueOf(64.0D));
+        pos.add(DoubleTag.valueOf(-2.5D));
+        base.put("pos", pos);
+        base.putFloat("yaw", 90.0F);
+        base.putFloat("pitch", -15.0F);
+        CompoundTag old = new CompoundTag();
+        old.putString("dimension", "minecraft:the_nether");
+        old.putIntArray("position", new int[] {3, 70, -4});
+        old.putFloat("yaw", 180.0F);
+        old.putFloat("pitch", 10.0F);
+        CompoundTag ownerHomes = new CompoundTag();
+        ownerHomes.put("base", base);
+        ownerHomes.put("old", old);
+        return ownerHomes;
+    }
+
+    private static CompoundTag savedShares(String... guests) {
+        ListTag base = new ListTag();
+        for (String guest : guests) base.add(StringTag.valueOf(guest));
+        CompoundTag ownerShares = new CompoundTag();
+        ownerShares.put("base", base);
+        return ownerShares;
+    }
+
+    /**
+     * Writes the homes file the way SavedDataStorage.tryWrite does (SavedDataStorage.java:198-215).
+     */
+    private static Path writeHomesFile(Path folder, CompoundTag homes, CompoundTag shares) {
+        CompoundTag data = new CompoundTag();
+        data.put("homes", homes);
+        data.put("shares", shares);
+        CompoundTag file = new CompoundTag();
+        file.put("data", data);
+        NbtUtils.addCurrentDataVersion(file);
+        Path path = HomeData.TYPE.id().withSuffix(".dat").resolveAgainst(folder);
+        try {
+            Files.createDirectories(path.getParent());
+            NbtIo.writeCompressed(file, path);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+        return path;
+    }
+
+    private static CompoundTag readTag(Path file) {
+        try {
+            return NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static SavedDataStorage dataStorage(GameTestHelper helper, Path folder) {
+        var server = helper.getLevel().getServer();
+        return new SavedDataStorage(folder, server.getFixerUpper(), server.registryAccess());
+    }
+
+    private static Path createDataFolder() {
+        try {
+            return Files.createTempDirectory("simplehomes-gametest");
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static void deleteFolder(Path folder) {
+        try (Stream<Path> paths = Files.walk(folder)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     private static List<String> suggestions(

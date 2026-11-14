@@ -99,6 +99,16 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(helper);
     }
 
+    @GameTest
+    public void aMalformedPlayerKeyInTheSaveFileLosesOnlyThatEntry(GameTestHelper helper) {
+        SimpleHomesGameTests.aMalformedPlayerKeyInTheSaveFileLosesOnlyThatEntry(helper);
+    }
+
+    @GameTest
+    public void anExistingSaveFileIsWrittenBackByteForByte(GameTestHelper helper) {
+        SimpleHomesGameTests.anExistingSaveFileIsWrittenBackByteForByte(helper);
+    }
+
     // The GameTest server ticks as fast as it can, so a tick budget cannot bound a wait for a chunk
     // load (20000 ticks took 3 s on one host and 90 s on another, 14 Nov 2026). These tests check
     // 2 min of wall time themselves, and the budget is only a backstop above that.

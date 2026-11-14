@@ -136,6 +136,14 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
+        register(
+                event,
+                "a_malformed_player_key_in_the_save_file_loses_only_that_entry",
+                SimpleHomesGameTests::aMalformedPlayerKeyInTheSaveFileLosesOnlyThatEntry);
+        register(
+                event,
+                "an_existing_save_file_is_written_back_byte_for_byte",
+                SimpleHomesGameTests::anExistingSaveFileIsWrittenBackByteForByte);
     }
 
     private static void register(
