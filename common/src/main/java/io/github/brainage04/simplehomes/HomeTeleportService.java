@@ -31,6 +31,7 @@ import net.minecraft.world.level.block.PowderSnowBlock;
 import net.minecraft.world.level.block.SpeleothemBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.SpeleothemThickness;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -360,8 +361,7 @@ public final class HomeTeleportService {
      *   <li>A stalagmite tip anywhere under the box adds 2.5 blocks and doubles the damage
      *       (PointedDripstoneBlock.java:53-60). Blocks that soften a landing, Slow Falling and
      *       entities to stand on get no credit.
-     *   <li>No floor within the reach counts as hurting: a fall that deep hurts, and past {@link
-     *       #MAX_DROP} it may go on any distance.
+     *   <li>No floor within {@link #MAX_DROP} counts as hurting: the fall may go on any distance.
      * </ul>
      */
     private static boolean dropHurts(ServerLevel level, ServerPlayer player, Vec3 destination) {
@@ -370,16 +370,21 @@ public final class HomeTeleportService {
         if (player.getAbilities().mayfly || player.getAbilities().invulnerable) {
             return false;
         }
+        // The rule Player.isInvulnerableTo applies to fall damage (Player.java:662-663). Calling it
+        // would also count ServerPlayer's grace while the client loads (ServerPlayer.java:1334),
+        // which can end before the player lands.
+        if (!level.getGameRules().get(GameRules.FALL_DAMAGE)) {
+            return false;
+        }
         double safeDistance = player.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
         double multiplier = player.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER);
-        double reach = Math.clamp(Math.ceil(safeDistance + 1.0 / multiplier) + 1.0, 1.0, MAX_DROP);
         AABB box = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
         Iterable<VoxelShape> below =
                 level.getBlockCollisionsFromContext(
                         CollisionContext.positionContext(destination.y()),
-                        box.setMinY(box.minY - reach).setMaxY(box.minY));
-        double fall = -Shapes.collide(Direction.Axis.Y, box, below, -reach);
-        if (fall >= reach) {
+                        box.setMinY(box.minY - MAX_DROP).setMaxY(box.minY));
+        double fall = -Shapes.collide(Direction.Axis.Y, box, below, -MAX_DROP);
+        if (fall >= MAX_DROP) {
             return true;
         }
         double floor = box.minY - fall;
