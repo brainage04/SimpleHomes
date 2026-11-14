@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
@@ -34,6 +35,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.TicketStorage;
 import net.minecraft.world.phys.Vec3;
 
 public final class SimpleHomesGameTests {
@@ -689,6 +691,144 @@ public final class SimpleHomesGameTests {
                                     level.getChunkSource().getChunkNow(far.x(), far.z()) == null,
                                     "The last teleport to end must give the ticket back");
                         })
+                .thenSucceed();
+    }
+
+    private static ChunkPos farChunk(GameTestHelper helper, int zOffset) {
+        BlockPos here = helper.absolutePos(new BlockPos(2, 1, 2));
+        return new ChunkPos(
+                SectionPos.blockToSectionCoord(here.getX() + 100_000),
+                SectionPos.blockToSectionCoord(here.getZ() + zOffset));
+    }
+
+    private static Vec3 middleOf(ChunkPos chunk) {
+        return new Vec3(
+                SectionPos.sectionToBlockCoord(chunk.x(), 8) + 0.5D,
+                64.0D,
+                SectionPos.sectionToBlockCoord(chunk.z(), 8) + 0.5D);
+    }
+
+    private static boolean holdsLoadingTicket(ServerLevel level, ChunkPos chunk) {
+        return level.getDataStorage().computeIfAbsent(TicketStorage.TYPE).getTickets(chunk.pack())
+                .stream()
+                .anyMatch(ticket -> ticket.getType() == TicketType.PLAYER_LOADING);
+    }
+
+    public static void aTicketAnotherModTookAwayIsTakenAgainBeforeArriving(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // Closed inside the final step, which runs after this method has returned.
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesTicketTaken");
+        ChunkPos far = farChunk(helper, 96_000);
+        helper.assertTrue(
+                level.getChunkSource().getChunkNow(far.x(), far.z()) == null,
+                "The chunk must not be loaded before the test");
+        boolean[] arrived = new boolean[1];
+        boolean[] loadedOnArrival = new boolean[1];
+        HomeTeleportService.loadThenArrive(
+                level,
+                owner.player(),
+                middleOf(far),
+                "the test spot",
+                List.of(far),
+                1,
+                () -> {
+                    arrived[0] = true;
+                    loadedOnArrival[0] = level.getChunkSource().getChunkNow(far.x(), far.z()) != null;
+                });
+        // Another mod's teleport waiting on the same chunk ends: tickets of one type and level are
+        // one ticket, so its release removes the ticket this load took as well.
+        level.getChunkSource().removeTicketWithRadius(TicketType.PLAYER_LOADING, far, 0);
+        long started = System.nanoTime();
+        helper.startSequence()
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(arrived[0], "The teleport must arrive");
+                        })
+                .thenExecute(
+                        () -> {
+                            owner.close();
+                            helper.assertTrue(
+                                    loadedOnArrival[0],
+                                    "The teleport must arrive only once its chunk is loaded again,"
+                                            + " not on a chunk that lost its ticket");
+                        })
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    !holdsLoadingTicket(level, far),
+                                    "The ticket taken again must be given back");
+                        })
+                .thenSucceed();
+    }
+
+    public static void aFailedArrivalIsReportedAndGivesTheTicketBack(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // Closed inside the final step, which runs after this method has returned.
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesArrivalFails");
+        ChunkPos far = farChunk(helper, 120_000);
+        HomeTeleportService.loadThenArrive(
+                level,
+                owner.player(),
+                middleOf(far),
+                "the test spot",
+                List.of(far),
+                1,
+                () -> {
+                    throw new IllegalStateException("A GameTest arrival that fails on purpose");
+                });
+        helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
+        long started = System.nanoTime();
+        helper.startSequence()
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    owner.received(
+                                            "[SimpleHomes] Could not teleport to the test spot."),
+                                    "A failed arrival must be reported to the player, got "
+                                            + owner.messageTexts());
+                        })
+                .thenExecute(
+                        () -> {
+                            owner.close();
+                            helper.assertTrue(
+                                    !holdsLoadingTicket(level, far),
+                                    "A failed arrival must still give the ticket back");
+                        })
+                .thenSucceed();
+    }
+
+    public static void aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesLeavesDuringLoad");
+        ChunkPos far = farChunk(helper, 144_000);
+        boolean[] arrived = new boolean[1];
+        HomeTeleportService.loadThenArrive(
+                level,
+                owner.player(),
+                middleOf(far),
+                "the test spot",
+                List.of(far),
+                1,
+                () -> arrived[0] = true);
+        helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
+        owner.close();
+        long started = System.nanoTime();
+        helper.startSequence()
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    !holdsLoadingTicket(level, far),
+                                    "The ticket must be given back when the player has left");
+                        })
+                .thenExecute(
+                        () ->
+                                helper.assertTrue(
+                                        !arrived[0],
+                                        "A player who left during the load must not be teleported"))
                 .thenSucceed();
     }
 

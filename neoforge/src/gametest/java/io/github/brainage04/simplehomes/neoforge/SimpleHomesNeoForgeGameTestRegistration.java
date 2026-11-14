@@ -98,6 +98,18 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds);
         register(
                 event,
+                "a_ticket_another_mod_took_away_is_taken_again_before_arriving",
+                SimpleHomesGameTests::aTicketAnotherModTookAwayIsTakenAgainBeforeArriving);
+        register(
+                event,
+                "a_failed_arrival_is_reported_and_gives_the_ticket_back",
+                SimpleHomesGameTests::aFailedArrivalIsReportedAndGivesTheTicketBack);
+        register(
+                event,
+                "a_player_who_leaves_during_the_load_gives_the_ticket_back",
+                SimpleHomesGameTests::aPlayerWhoLeavesDuringTheLoadGivesTheTicketBack);
+        register(
+                event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
     }
