@@ -73,4 +73,14 @@ public final class SimpleHomesGameTest {
     public void homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(GameTestHelper helper) {
         SimpleHomesGameTests.homesInScaffoldingOrPowderSnowAreJudgedWhereTheyAre(helper);
     }
+
+    @GameTest
+    public void playerOnlyCommandsAnswerNonPlayersThroughModFeedback(GameTestHelper helper) {
+        SimpleHomesGameTests.playerOnlyCommandsAnswerNonPlayersThroughModFeedback(helper);
+    }
+
+    @GameTest
+    public void commandsClickForThePlayerThroughModFeedback(GameTestHelper helper) {
+        SimpleHomesGameTests.commandsClickForThePlayerThroughModFeedback(helper);
+    }
 }
