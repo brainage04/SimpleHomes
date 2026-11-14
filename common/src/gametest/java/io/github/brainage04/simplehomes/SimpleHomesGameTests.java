@@ -43,6 +43,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
@@ -1621,9 +1622,9 @@ public final class SimpleHomesGameTests {
     /**
      * A home in the air fails for a survival player when the fall below it would hurt: four blocks
      * onto stone, one block and a bit onto a stalagmite tip (2.5 blocks added and the damage
-     * doubled), and six blocks onto the floor, past the five block reach of the default safe fall
-     * distance. Three blocks onto stone, the safe fall distance, and four blocks into water still
-     * work, and so does the four block drop for a creative player and for one who may fly.
+     * doubled), and six blocks onto the floor. Three blocks onto stone, the safe fall distance, and
+     * four or five blocks into water still work, and so does the four block drop for a creative
+     * player, for one who may fly and while the fall_damage game rule is off.
      */
     // deprecated-api: NeoForge-only deprecation of the field vanilla reads (Player.java:1437)
     @SuppressWarnings("deprecation")
@@ -1648,13 +1649,14 @@ public final class SimpleHomesGameTests {
             helper.setBlock(new BlockPos(0, 1, 0), Blocks.POINTED_DRIPSTONE);
             helper.setBlock(new BlockPos(4, 1, 4), Blocks.WATER);
             HomeData data = HomeData.get(level.getServer());
-            String[] names = {"high", "tip", "deep", "edge", "water"};
+            String[] names = {"high", "tip", "deep", "edge", "water", "deepwater"};
             Vec3[] homes = {
                 Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 5, 2))),
                 Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(0, 3, 0))),
                 Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 6, 0))),
                 Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 4, 4))),
-                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 5, 4)))
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 5, 4))),
+                Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 6, 4)))
             };
             for (GameTestPlayer joined : List.of(owner, creative, flier)) {
                 for (int index = 0; index < names.length; index++) {
@@ -1697,6 +1699,23 @@ public final class SimpleHomesGameTests {
                         player.position().equals(homes[index]),
                         "The player must arrive at " + names[index] + ", got " + player.position());
             }
+
+            owner.moveTo(helper, new BlockPos(5, 1, 5));
+            owner.clearMessages();
+            boolean fallDamage = level.getGameRules().get(GameRules.FALL_DAMAGE);
+            // Set and restored within this call, so no other test sees the rule off.
+            level.getGameRules().set(GameRules.FALL_DAMAGE, false, level.getServer());
+            try {
+                helper.assertTrue(
+                        execute(helper, player, "home high") == 1,
+                        "A home over a drop must still teleport while fall damage is off, got "
+                                + owner.messageTexts());
+            } finally {
+                level.getGameRules().set(GameRules.FALL_DAMAGE, fallDamage, level.getServer());
+            }
+            helper.assertTrue(
+                    player.position().equals(homes[0]),
+                    "The player must arrive over the drop, got " + player.position());
 
             ServerPlayer flying = flier.player();
             flying.getAbilities().mayfly = true;
