@@ -30,6 +30,7 @@ import net.minecraft.server.level.TicketType;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
@@ -1408,7 +1409,8 @@ public final class SimpleHomesGameTests {
     /**
      * A home next to a lava block, with no lava under the centre of its feet, fails once the
      * player's box would reach into the lava, 0.25 blocks from it and even by 0.0005 blocks, and
-     * still works 0.35 blocks from it, where the box (0.6 wide) stays clear.
+     * still works 0.35 blocks from it, where the box (0.6 wide) stays clear. Lava at a standing
+     * player's head height also fails a player who crawls now and could stand up there.
      */
     public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1474,6 +1476,34 @@ public final class SimpleHomesGameTests {
                     player.position().equals(beside.add(0.15, 0.0, 0.0)),
                     "A home whose box stays clear of the lava must move the player there, got "
                             + player.position());
+
+            BlockPos crawl = helper.absolutePos(new BlockPos(2, 1, 4));
+            helper.setBlock(new BlockPos(2, 2, 4), Blocks.LAVA);
+            data.setHome(
+                    player.getUUID(),
+                    "crawl",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(crawl),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            // A crawling player's box is 0.6 blocks tall (Avatar.java:28), under the lava.
+            player.setPose(Pose.SWIMMING);
+            Vec3 crawling = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home crawl") == 0,
+                    "A home with lava at head height must be refused for a crawling player");
+            helper.assertTrue(
+                    player.position().equals(crawling),
+                    "A home with lava at head height must not move a crawling player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'crawl' because it is in lava.",
+                    0xFF5555);
+            player.setPose(Pose.STANDING);
         }
         helper.succeed();
     }
