@@ -398,6 +398,30 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /** A home in water is survivable, so the lava and void refusals leave it usable. */
+    public static void aHomeInWaterStillTeleports(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesInWater")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(1, 1, 1));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.WATER);
+            Vec3 inWater = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 1, 2)));
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "water",
+                            new HomeLocation(level.dimension().identifier(), inWater, 0.0F, 0.0F),
+                            SimpleHomesConfig.maximumHomes());
+            helper.assertTrue(
+                    execute(helper, player, "home water") == 1,
+                    "A home in water must teleport, got " + owner.messageTexts());
+            helper.assertTrue(
+                    player.position().equals(inWater),
+                    "A home in water must move the player there, got " + player.position());
+        }
+        helper.succeed();
+    }
+
     public static void obstructedHomesFailWithoutMovingThePlayer(GameTestHelper helper) {
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBuiltOver")) {
             ServerPlayer player = owner.player();

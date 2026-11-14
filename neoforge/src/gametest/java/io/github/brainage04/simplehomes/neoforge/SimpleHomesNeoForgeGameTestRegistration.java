@@ -55,6 +55,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::obstructedHomesFailWithoutMovingThePlayer);
         register(
                 event,
+                "a_home_in_water_still_teleports",
+                SimpleHomesGameTests::aHomeInWaterStillTeleports);
+        register(
+                event,
                 "homeof_finds_owners_without_asking_mojang",
                 SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
         register(

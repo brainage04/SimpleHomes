@@ -55,6 +55,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void aHomeInWaterStillTeleports(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInWaterStillTeleports(helper);
+    }
+
+    @GameTest
     public void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
         SimpleHomesGameTests.homeofFindsOwnersWithoutAskingMojang(helper);
     }
