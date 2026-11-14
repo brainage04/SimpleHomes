@@ -1514,7 +1514,9 @@ public final class SimpleHomesGameTests {
     /**
      * Lava cannot hurt a creative or spectator player, or one whose Fire Resistance never ends, so
      * a home in lava still takes them there, while a home over the void, whose damage gets past
-     * their protection, is still refused. Fire Resistance that runs out does not count.
+     * their protection, is still refused. Fire Resistance that runs out does not count. With the
+     * fire_damage game rule off lava hurts nobody (Player.java:664-665), so the home takes a
+     * survival player there too.
      */
     public static void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1580,6 +1582,26 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     survivor.position().equals(inLava),
                     "The fire resistant player must arrive in the lava, got "
+                            + survivor.position());
+
+            fireproof.moveTo(helper, new BlockPos(1, 1, 1));
+            survivor.removeEffect(MobEffects.FIRE_RESISTANCE);
+            GameRules rules = level.getGameRules();
+            boolean fireDamage = rules.get(GameRules.FIRE_DAMAGE);
+            fireproof.clearMessages();
+            // Set and restored within this call, so no other test sees the rule off.
+            rules.set(GameRules.FIRE_DAMAGE, false, level.getServer());
+            try {
+                helper.assertTrue(
+                        execute(helper, survivor, "home lava") == 1,
+                        "A home in lava must take a player there while fire damage is off, got "
+                                + fireproof.messageTexts());
+            } finally {
+                rules.set(GameRules.FIRE_DAMAGE, fireDamage, level.getServer());
+            }
+            helper.assertTrue(
+                    survivor.position().equals(inLava),
+                    "The player must arrive in the lava while fire damage is off, got "
                             + survivor.position());
 
             ServerPlayer player = creative.player();

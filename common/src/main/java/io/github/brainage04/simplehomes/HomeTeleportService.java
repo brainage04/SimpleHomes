@@ -315,14 +315,19 @@ public final class HomeTeleportService {
         // Lava does not hurt a creative or spectator player (Player.java:677-679), who only sinks
         // through it; the void's damage gets past that (DamageTypeTags.BYPASSES_INVULNERABILITY).
         // Fire Resistance stops fire damage, lava's included (LivingEntity.java:1187-1189), but
-        // only while it lasts, and the player may still be in the lava when it ends.
+        // only while it lasts, and the player may still be in the lava when it ends. With the
+        // fire_damage rule off no fire damage hurts a player (Player.java:664-665). Calling
+        // Player.isInvulnerableTo would also count ServerPlayer's grace while the client loads
+        // (ServerPlayer.java:1334), which can end while the player is still in the lava.
         MobEffectInstance fireResistance = player.getEffect(MobEffects.FIRE_RESISTANCE);
         boolean lavaHurts =
                 (!player.getAbilities().invulnerable
                                 || lavaDamage.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
                         && !(fireResistance != null
                                 && fireResistance.isInfiniteDuration()
-                                && lavaDamage.is(DamageTypeTags.IS_FIRE));
+                                && lavaDamage.is(DamageTypeTags.IS_FIRE))
+                        && !(lavaDamage.is(DamageTypeTags.IS_FIRE)
+                                && !level.getGameRules().get(GameRules.FIRE_DAMAGE));
         // The largest of the player's poses (Avatar.java:24-36): a player who crouches or crawls
         // now can stand up there, into lava that their present box would miss.
         AABB box = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
