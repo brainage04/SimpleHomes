@@ -1407,8 +1407,8 @@ public final class SimpleHomesGameTests {
 
     /**
      * A home next to a lava block, with no lava under the centre of its feet, fails once the
-     * player's box would reach into the lava, 0.25 blocks from it, and still works 0.35 blocks from
-     * it, where the box (0.6 wide) stays clear.
+     * player's box would reach into the lava, 0.25 blocks from it and even by 0.0005 blocks, and
+     * still works 0.35 blocks from it, where the box (0.6 wide) stays clear.
      */
     public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1431,6 +1431,17 @@ public final class SimpleHomesGameTests {
                     new HomeLocation(
                             level.dimension().identifier(), beside.add(0.15, 0.0, 0.0), 0.0F, 0.0F),
                     SimpleHomesConfig.maximumHomes());
+            // Lava hurts a box that overlaps it by more than 1e-7 (Entity.java:1346, 1376,
+            // 1426-1428; AABB.java:401-409), well short of 0.0005 blocks.
+            data.setHome(
+                    player.getUUID(),
+                    "graze",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            beside.add(0.2005, 0.0, 0.0),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
             Vec3 before = player.position();
             owner.clearMessages();
             helper.assertTrue(
@@ -1443,6 +1454,18 @@ public final class SimpleHomesGameTests {
                     helper,
                     owner,
                     "[SimpleHomes] Could not teleport to home 'edge' because it is in lava.",
+                    0xFF5555);
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home graze") == 0,
+                    "A home whose box reaches 0.0005 blocks into lava must be refused");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home whose box reaches 0.0005 blocks into lava must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'graze' because it is in lava.",
                     0xFF5555);
             helper.assertTrue(
                     execute(helper, player, "home near") == 1,
