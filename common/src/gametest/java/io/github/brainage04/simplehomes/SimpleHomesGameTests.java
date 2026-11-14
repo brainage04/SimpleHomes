@@ -29,7 +29,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
@@ -1407,8 +1410,9 @@ public final class SimpleHomesGameTests {
 
     /**
      * A home next to a lava block, with no lava under the centre of its feet, fails once the
-     * player's box would reach into the lava, 0.25 blocks from it, and still works 0.35 blocks from
-     * it, where the box (0.6 wide) stays clear.
+     * player's box would reach into the lava, 0.25 blocks from it and even by 0.0005 blocks, and
+     * still works 0.35 blocks from it, where the box (0.6 wide) stays clear. Lava at a standing
+     * player's head height also fails a player who crawls now and could stand up there.
      */
     public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1431,6 +1435,17 @@ public final class SimpleHomesGameTests {
                     new HomeLocation(
                             level.dimension().identifier(), beside.add(0.15, 0.0, 0.0), 0.0F, 0.0F),
                     SimpleHomesConfig.maximumHomes());
+            // Lava hurts a box that overlaps it by more than 1e-7 (Entity.java:1346, 1376,
+            // 1426-1428; AABB.java:401-409), well short of 0.0005 blocks.
+            data.setHome(
+                    player.getUUID(),
+                    "graze",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            beside.add(0.2005, 0.0, 0.0),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
             Vec3 before = player.position();
             owner.clearMessages();
             helper.assertTrue(
@@ -1444,6 +1459,18 @@ public final class SimpleHomesGameTests {
                     owner,
                     "[SimpleHomes] Could not teleport to home 'edge' because it is in lava.",
                     0xFF5555);
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home graze") == 0,
+                    "A home whose box reaches 0.0005 blocks into lava must be refused");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home whose box reaches 0.0005 blocks into lava must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'graze' because it is in lava.",
+                    0xFF5555);
             helper.assertTrue(
                     execute(helper, player, "home near") == 1,
                     "A home whose box stays clear of the lava must still teleport");
@@ -1451,21 +1478,51 @@ public final class SimpleHomesGameTests {
                     player.position().equals(beside.add(0.15, 0.0, 0.0)),
                     "A home whose box stays clear of the lava must move the player there, got "
                             + player.position());
+
+            BlockPos crawl = helper.absolutePos(new BlockPos(2, 1, 4));
+            helper.setBlock(new BlockPos(2, 2, 4), Blocks.LAVA);
+            data.setHome(
+                    player.getUUID(),
+                    "crawl",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(crawl),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            // A crawling player's box is 0.6 blocks tall (Avatar.java:28), under the lava.
+            player.setPose(Pose.SWIMMING);
+            Vec3 crawling = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home crawl") == 0,
+                    "A home with lava at head height must be refused for a crawling player");
+            helper.assertTrue(
+                    player.position().equals(crawling),
+                    "A home with lava at head height must not move a crawling player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'crawl' because it is in lava.",
+                    0xFF5555);
+            player.setPose(Pose.STANDING);
         }
         helper.succeed();
     }
 
     /**
-     * Lava cannot hurt a creative or spectator player, so a home in lava still takes them there,
-     * while a home over the void, whose damage gets past their protection, is still refused.
+     * Lava cannot hurt a creative or spectator player, or one whose Fire Resistance never ends, so
+     * a home in lava still takes them there, while a home over the void, whose damage gets past
+     * their protection, is still refused. Fire Resistance that runs out does not count.
      */
     public static void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         try (GameTestPlayer creative =
                         GameTestPlayer.join(helper, "HomesCreative").gameMode(GameType.CREATIVE);
                 GameTestPlayer spectator =
-                        GameTestPlayer.join(helper, "HomesSpectator")
-                                .gameMode(GameType.SPECTATOR)) {
+                        GameTestPlayer.join(helper, "HomesSpectator").gameMode(GameType.SPECTATOR);
+                GameTestPlayer fireproof =
+                        GameTestPlayer.join(helper, "HomesFireproof").gameMode(GameType.SURVIVAL)) {
             HomeData data = HomeData.get(level.getServer());
             BlockPos lava = helper.absolutePos(new BlockPos(4, 1, 2));
             helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
@@ -1488,6 +1545,41 @@ public final class SimpleHomesGameTests {
                         player.position().equals(inLava),
                         "The player must arrive in the lava, got " + player.position());
             }
+
+            ServerPlayer survivor = fireproof.player();
+            fireproof.moveTo(helper, new BlockPos(1, 1, 1));
+            data.setHome(
+                    survivor.getUUID(),
+                    "lava",
+                    new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            survivor.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 9600));
+            Vec3 outside = survivor.position();
+            fireproof.clearMessages();
+            helper.assertTrue(
+                    execute(helper, survivor, "home lava") == 0,
+                    "A home in lava must be refused while Fire Resistance can run out");
+            helper.assertTrue(
+                    survivor.position().equals(outside),
+                    "A home in lava must not move a player whose Fire Resistance can run out");
+            assertMessage(
+                    helper,
+                    fireproof,
+                    "[SimpleHomes] Could not teleport to home 'lava' because it is in lava.",
+                    0xFF5555);
+            survivor.removeEffect(MobEffects.FIRE_RESISTANCE);
+            survivor.addEffect(
+                    new MobEffectInstance(
+                            MobEffects.FIRE_RESISTANCE, MobEffectInstance.INFINITE_DURATION));
+            fireproof.clearMessages();
+            helper.assertTrue(
+                    execute(helper, survivor, "home lava") == 1,
+                    "A home in lava must take a player whose Fire Resistance never ends there, got "
+                            + fireproof.messageTexts());
+            helper.assertTrue(
+                    survivor.position().equals(inLava),
+                    "The fire resistant player must arrive in the lava, got "
+                            + survivor.position());
 
             ServerPlayer player = creative.player();
             creative.moveTo(helper, new BlockPos(1, 1, 1));
