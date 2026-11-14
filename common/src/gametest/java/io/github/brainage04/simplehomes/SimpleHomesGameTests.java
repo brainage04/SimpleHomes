@@ -1423,6 +1423,77 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * Lava cannot hurt a creative or spectator player, so a home in lava still takes them there,
+     * while a home over the void, whose damage gets past their protection, is still refused.
+     */
+    public static void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer creative =
+                        GameTestPlayer.join(helper, "HomesCreative").gameMode(GameType.CREATIVE);
+                GameTestPlayer spectator =
+                        GameTestPlayer.join(helper, "HomesSpectator")
+                                .gameMode(GameType.SPECTATOR)) {
+            HomeData data = HomeData.get(level.getServer());
+            BlockPos lava = helper.absolutePos(new BlockPos(4, 1, 2));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
+            Vec3 inLava = Vec3.atBottomCenterOf(lava);
+            for (GameTestPlayer owner : List.of(creative, spectator)) {
+                ServerPlayer player = owner.player();
+                owner.moveTo(helper, new BlockPos(1, 1, 1));
+                data.setHome(
+                        player.getUUID(),
+                        "lava",
+                        new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
+                        SimpleHomesConfig.maximumHomes());
+                helper.assertTrue(
+                        execute(helper, player, "home lava") == 1,
+                        "A home in lava must still take "
+                                + player.getScoreboardName()
+                                + " there, got "
+                                + owner.messageTexts());
+                helper.assertTrue(
+                        player.position().equals(inLava),
+                        "The player must arrive in the lava, got " + player.position());
+            }
+
+            ServerPlayer player = creative.player();
+            creative.moveTo(helper, new BlockPos(1, 1, 1));
+            BlockPos overVoid = helper.absolutePos(new BlockPos(2, 1, 2)).offset(3_000, 0, 3_000);
+            level.getChunk(
+                    SectionPos.blockToSectionCoord(overVoid.getX()),
+                    SectionPos.blockToSectionCoord(overVoid.getZ()));
+            for (int y = level.getMinY(); y <= overVoid.getY(); y++) {
+                level.setBlockAndUpdate(
+                        new BlockPos(overVoid.getX(), y, overVoid.getZ()),
+                        Blocks.AIR.defaultBlockState());
+            }
+            data.setHome(
+                    player.getUUID(),
+                    "void",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(overVoid),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            Vec3 before = player.position();
+            creative.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home void") == 0,
+                    "A home over the void must still be refused for a creative player");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home over the void must not move a creative player");
+            assertMessage(
+                    helper,
+                    creative,
+                    "[SimpleHomes] Could not teleport to home 'void' because it is over the void.",
+                    0xFF5555);
+        }
+        helper.succeed();
+    }
+
     public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.

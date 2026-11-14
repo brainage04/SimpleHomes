@@ -127,6 +127,11 @@ public final class SimpleHomesGameTest {
         SimpleHomesGameTests.aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(helper);
     }
 
+    @GameTest
+    public void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.lavaDoesNotStopACreativeOrSpectatorPlayer(helper);
+    }
+
     @GameTest(maxTicks = 1000000)
     public void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         SimpleHomesGameTests.aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(helper);

@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 20,
+  "type": "minecraft:function",
+  "function": "simplehomes:lava_does_not_stop_a_creative_or_spectator_player"
+}
