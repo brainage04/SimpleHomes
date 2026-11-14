@@ -840,10 +840,14 @@ public final class SimpleHomesGameTests {
                 "[SimpleHomes] Could not teleport to the test spot because its chunk would not"
                         + " stay loaded.";
         long started = System.nanoTime();
+        boolean[] westWithoutTicket = new boolean[1];
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
                             assertStillLoading(helper, started);
+                            if (!arrived[0] && !holdsLoadingTicket(level, west)) {
+                                westWithoutTicket[0] = true;
+                            }
                             helper.assertTrue(
                                     arrived[0] || owner.received(refusal),
                                     "The teleport must arrive or give up");
@@ -856,6 +860,10 @@ public final class SimpleHomesGameTests {
                                     arrived[0],
                                     "Both chunks must be loaded again, not given up on, got "
                                             + messages);
+                            helper.assertTrue(
+                                    !westWithoutTicket[0],
+                                    "The chunk that stayed loaded must keep its ticket while the"
+                                            + " teleport waits for the other one");
                             helper.assertTrue(
                                     loadedOnArrival[0],
                                     "The teleport must arrive only once both chunks are loaded");
