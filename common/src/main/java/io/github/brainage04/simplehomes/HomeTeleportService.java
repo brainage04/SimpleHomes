@@ -129,7 +129,11 @@ public final class HomeTeleportService {
                                 release(level, chunks);
                             }
                         },
-                        level.getServer());
+                        // Queued, never run at once: the server's executor runs a task at once on
+                        // the server thread (BlockableEventLoop.java:98-105), and a load that loses
+                        // its ticket completes inside DistanceManager.runAllUpdates
+                        // (DistanceManager.java:76-85), which loading again would re-enter.
+                        task -> level.getServer().schedule(level.getServer().wrapRunnable(task)));
     }
 
     private static boolean arrive(
