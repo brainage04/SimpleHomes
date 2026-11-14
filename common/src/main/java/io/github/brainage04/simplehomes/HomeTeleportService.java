@@ -31,6 +31,9 @@ public final class HomeTeleportService {
      */
     private static final Map<ServerLevel, Map<ChunkPos, Integer>> TICKETS = new WeakHashMap<>();
 
+    /** How many times a teleport loads its chunks before it gives up on them staying loaded. */
+    private static final int LOAD_ATTEMPTS = 3;
+
     private HomeTeleportService() {}
 
     public static int teleport(ServerPlayer player, HomeLocation home, String label) {
@@ -50,7 +53,26 @@ public final class HomeTeleportService {
         // (PlayerSpawnFinder.java:114-121); the answer reaches the player from the callback a few
         // ticks later.
         SimpleHomes.FEEDBACK.neutral(player, "Loading %s...", label);
-        load(level, unloaded)
+        Vec3 destination = home.destinationWithoutWorld();
+        loadThenArrive(
+                level, player, destination, label, unloaded, 1, () -> arrive(player, level, home, label));
+        return 1;
+    }
+
+    /**
+     * Loads {@code chunks}, then runs {@code arrive} on the server thread once every chunk under the
+     * standing box at {@code destination} is full, unless the player has left by then. Package
+     * private for the GameTests.
+     */
+    static void loadThenArrive(
+            ServerLevel level,
+            ServerPlayer player,
+            Vec3 destination,
+            String label,
+            List<ChunkPos> chunks,
+            int attempt,
+            Runnable arrive) {
+        load(level, chunks)
                 .whenCompleteAsync(
                         (ignored, failure) -> {
                             try {
@@ -58,14 +80,47 @@ public final class HomeTeleportService {
                                     SimpleHomes.FEEDBACK.error(
                                             player, "Could not teleport to %s.", label);
                                 } else if (!player.hasDisconnected()) {
-                                    arrive(player, level, home, label);
+                                    // The count above is this mod's own: another mod that adds and
+                                    // removes a PLAYER_LOADING ticket on the same chunk shares the
+                                    // one ticket (TicketStorage.java:147-156) and can take it away
+                                    // before this load is done, which completes the load with an
+                                    // unloaded chunk (GenerationChunkHolder.java:83-91, 164-167).
+                                    List<ChunkPos> missing =
+                                            chunksToLoad(level, player, destination);
+                                    if (missing.isEmpty()) {
+                                        arrive.run();
+                                    } else if (attempt < LOAD_ATTEMPTS) {
+                                        loadThenArrive(
+                                                level,
+                                                player,
+                                                destination,
+                                                label,
+                                                missing,
+                                                attempt + 1,
+                                                arrive);
+                                    } else {
+                                        SimpleHomes.FEEDBACK.error(
+                                                player,
+                                                "Could not teleport to %s because its chunk would"
+                                                        + " not stay loaded.",
+                                                label);
+                                    }
                                 }
+                            } catch (Throwable thrown) {
+                                SimpleHomes.LOGGER.error(
+                                        "Could not teleport {} to {} at {} in {}",
+                                        player.getScoreboardName(),
+                                        label,
+                                        destination,
+                                        level.dimension().identifier(),
+                                        thrown);
+                                SimpleHomes.FEEDBACK.error(
+                                        player, "Could not teleport to %s.", label);
                             } finally {
-                                release(level, unloaded);
+                                release(level, chunks);
                             }
                         },
                         level.getServer());
-        return 1;
     }
 
     private static boolean arrive(
