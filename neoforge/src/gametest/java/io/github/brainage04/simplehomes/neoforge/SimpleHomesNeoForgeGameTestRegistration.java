@@ -106,6 +106,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
         register(
                 event,
+                "a_home_beside_lava_fails_when_the_player_would_touch_it",
+                SimpleHomesGameTests::aHomeBesideLavaFailsWhenThePlayerWouldTouchIt);
+        register(
+                event,
                 "a_home_in_lava_in_an_unloaded_chunk_fails_once_the_chunk_loads",
                 SimpleHomesGameTests::aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads);
         register(

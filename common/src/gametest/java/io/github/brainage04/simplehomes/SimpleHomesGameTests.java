@@ -1374,6 +1374,55 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * A home next to a lava block, with no lava under the centre of its feet, fails once the
+     * player's box would reach into the lava, 0.25 blocks from it, and still works 0.35 blocks from
+     * it, where the box (0.6 wide) stays clear.
+     */
+    public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBesideLava")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(1, 1, 1));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
+            Vec3 beside = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(3, 1, 2)));
+            HomeData data = HomeData.get(level.getServer());
+            data.setHome(
+                    player.getUUID(),
+                    "edge",
+                    new HomeLocation(
+                            level.dimension().identifier(), beside.add(0.25, 0.0, 0.0), 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            data.setHome(
+                    player.getUUID(),
+                    "near",
+                    new HomeLocation(
+                            level.dimension().identifier(), beside.add(0.15, 0.0, 0.0), 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            Vec3 before = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home edge") == 0,
+                    "A home whose box reaches into lava must be refused");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home whose box reaches into lava must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'edge' because it is in lava.",
+                    0xFF5555);
+            helper.assertTrue(
+                    execute(helper, player, "home near") == 1,
+                    "A home whose box stays clear of the lava must still teleport");
+            helper.assertTrue(
+                    player.position().equals(beside.add(0.15, 0.0, 0.0)),
+                    "A home whose box stays clear of the lava must move the player there, got "
+                            + player.position());
+        }
+        helper.succeed();
+    }
+
     public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.
