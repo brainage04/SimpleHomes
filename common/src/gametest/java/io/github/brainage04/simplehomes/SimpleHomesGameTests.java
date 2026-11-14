@@ -29,6 +29,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
@@ -1509,16 +1511,18 @@ public final class SimpleHomesGameTests {
     }
 
     /**
-     * Lava cannot hurt a creative or spectator player, so a home in lava still takes them there,
-     * while a home over the void, whose damage gets past their protection, is still refused.
+     * Lava cannot hurt a creative or spectator player, or one whose Fire Resistance never ends, so
+     * a home in lava still takes them there, while a home over the void, whose damage gets past
+     * their protection, is still refused. Fire Resistance that runs out does not count.
      */
     public static void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         try (GameTestPlayer creative =
                         GameTestPlayer.join(helper, "HomesCreative").gameMode(GameType.CREATIVE);
                 GameTestPlayer spectator =
-                        GameTestPlayer.join(helper, "HomesSpectator")
-                                .gameMode(GameType.SPECTATOR)) {
+                        GameTestPlayer.join(helper, "HomesSpectator").gameMode(GameType.SPECTATOR);
+                GameTestPlayer fireproof =
+                        GameTestPlayer.join(helper, "HomesFireproof").gameMode(GameType.SURVIVAL)) {
             HomeData data = HomeData.get(level.getServer());
             BlockPos lava = helper.absolutePos(new BlockPos(4, 1, 2));
             helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
@@ -1541,6 +1545,41 @@ public final class SimpleHomesGameTests {
                         player.position().equals(inLava),
                         "The player must arrive in the lava, got " + player.position());
             }
+
+            ServerPlayer survivor = fireproof.player();
+            fireproof.moveTo(helper, new BlockPos(1, 1, 1));
+            data.setHome(
+                    survivor.getUUID(),
+                    "lava",
+                    new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            survivor.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 9600));
+            Vec3 outside = survivor.position();
+            fireproof.clearMessages();
+            helper.assertTrue(
+                    execute(helper, survivor, "home lava") == 0,
+                    "A home in lava must be refused while Fire Resistance can run out");
+            helper.assertTrue(
+                    survivor.position().equals(outside),
+                    "A home in lava must not move a player whose Fire Resistance can run out");
+            assertMessage(
+                    helper,
+                    fireproof,
+                    "[SimpleHomes] Could not teleport to home 'lava' because it is in lava.",
+                    0xFF5555);
+            survivor.removeEffect(MobEffects.FIRE_RESISTANCE);
+            survivor.addEffect(
+                    new MobEffectInstance(
+                            MobEffects.FIRE_RESISTANCE, MobEffectInstance.INFINITE_DURATION));
+            fireproof.clearMessages();
+            helper.assertTrue(
+                    execute(helper, survivor, "home lava") == 1,
+                    "A home in lava must take a player whose Fire Resistance never ends there, got "
+                            + fireproof.messageTexts());
+            helper.assertTrue(
+                    survivor.position().equals(inLava),
+                    "The fire resistant player must arrive in the lava, got "
+                            + survivor.position());
 
             ServerPlayer player = creative.player();
             creative.moveTo(helper, new BlockPos(1, 1, 1));
