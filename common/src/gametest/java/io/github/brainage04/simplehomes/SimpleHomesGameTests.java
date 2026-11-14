@@ -1521,6 +1521,21 @@ public final class SimpleHomesGameTests {
                     Arrays.equals(before, after),
                     "Loading and saving an existing homes file must write the same bytes, read "
                             + readTag(file));
+
+            // A file from before data versions (NbtUtils.getDataVersion reads 1343 then,
+            // SavedDataStorage.java:123) holds only mod data, which no vanilla fix may rewrite.
+            CompoundTag written = readTag(file);
+            written.remove("DataVersion");
+            NbtIo.writeCompressed(written, file);
+            try (SavedDataStorage storage = dataStorage(helper, folder)) {
+                storage.computeIfAbsent(HomeData.TYPE).setDirty();
+            }
+            CompoundTag rewritten = readTag(file);
+            helper.assertTrue(
+                    written.get("data").equals(rewritten.get("data")),
+                    "Loading and saving a homes file without a data version must keep its data,"
+                            + " read "
+                            + rewritten);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         } finally {
