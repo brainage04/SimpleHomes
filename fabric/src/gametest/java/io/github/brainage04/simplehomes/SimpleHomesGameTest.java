@@ -101,4 +101,14 @@ public final class SimpleHomesGameTest {
     public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
         SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
     }
+
+    @GameTest(maxTicks = 1000000)
+    public void aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo(GameTestHelper helper) {
+        SimpleHomesGameTests.aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(GameTestHelper helper) {
+        SimpleHomesGameTests.aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(helper);
+    }
 }

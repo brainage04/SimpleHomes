@@ -73,10 +73,9 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "a_home_inside_the_ground_of_an_unloaded_chunk_still_fails",
                 SimpleHomesGameTests::aHomeInsideTheGroundOfAnUnloadedChunkStillFails);
-        register(
-                event,
-                "vanilla_tp_leaves_the_destination_chunk_unloaded",
-                SimpleHomesGameTests::vanillaTpLeavesTheDestinationChunkUnloaded);
+        // vanillaTpLeavesTheDestinationChunkUnloaded runs on Fabric only: on NeoForge the
+        // destination chunk was loaded right after /tp in a GameTest run on 14 Nov 2026, and the
+        // test describes vanilla's /tp, not this mod.
         register(
                 event,
                 "an_old_block_only_home_in_an_unloaded_chunk_lands_on_its_block",
@@ -85,6 +84,14 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "homes_in_lava_or_over_the_void_fail_without_moving_the_player",
                 SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
+        register(
+                event,
+                "a_second_home_request_while_the_chunk_loads_waits_for_the_load_too",
+                SimpleHomesGameTests::aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo);
+        register(
+                event,
+                "a_finished_load_leaves_the_ticket_another_load_still_needs",
+                SimpleHomesGameTests::aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds);
         register(
                 event,
                 "owners_revoke_guests_who_are_offline",
