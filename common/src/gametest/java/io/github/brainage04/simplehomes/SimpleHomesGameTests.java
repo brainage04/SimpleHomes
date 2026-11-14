@@ -210,21 +210,6 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     execute(helper, guest, "homeof @a base") == 0,
                     "A selector that matches several players must be refused");
-            helper.assertTrue(
-                    execute(helper, owner, "sethome revoke") == 1,
-                    "'revoke' must remain a valid home name");
-            helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke " + guestSelector) == 1,
-                    "A home named 'revoke' must be shareable");
-            helper.assertTrue(
-                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
-                    "The guest must reach the home named 'revoke'");
-            helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke revoke " + guestSelector) == 1,
-                    "Access to a home named 'revoke' must be revocable");
-            helper.assertTrue(
-                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
-                    "Revocation must apply to the home named 'revoke'");
             helper.succeed();
         }
     }
@@ -635,15 +620,14 @@ public final class SimpleHomesGameTests {
                         execute(helper, owner.player(), share) == 1,
                         "Sharing with an online player by name must work");
             }
-            // With nothing typed after "base ", both branches parse equally far and brigadier keeps
-            // the first one registered (CommandDispatcher.parseNodes, brigadier 1.3.10):
-            // "/sharehome revoke <players>", which shares a home named "revoke" and suggests
-            // nothing.
-            List<String> suggested =
-                    suggestions(helper, owner.player(), "sharehome revoke base Homes");
+            // Nothing is typed after the home name, so the completion has to come from the home
+            // branch itself; while "/sharehome revoke <players>" existed, brigadier kept that
+            // branch's suggestion provider instead and listed nothing.
+            List<String> suggested = suggestions(helper, owner.player(), "sharehome revoke base ");
             helper.assertTrue(
                     suggested.contains("HomesLeaver"),
-                    "Revoke must suggest the offline guest, got " + suggested);
+                    "Revoke must suggest the offline guest before anything is typed, got "
+                            + suggested);
             helper.assertTrue(
                     execute(helper, owner.player(), "sharehome revoke base HomesLeaver") == 1,
                     "An owner must be able to revoke a guest who is offline");
@@ -721,6 +705,90 @@ public final class SimpleHomesGameTests {
         return new Sent(messages, sounds);
     }
 
+    public static void revokeIsRefusedAsANewHomeName(GameTestHelper helper) {
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesReserved")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "sethome revoke") == 0,
+                    "A home may not be named 'revoke'");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] The name 'revoke' is reserved by /sharehome revoke. Choose"
+                            + " another name.",
+                    0xFF5555);
+            helper.assertTrue(
+                    HomeData.get(helper.getLevel().getServer())
+                            .getHome(player.getUUID(), "revoke")
+                            .isEmpty(),
+                    "Nothing may be stored under the reserved name");
+        }
+        helper.succeed();
+    }
+
+    public static void aHomeSavedUnderTheReservedNameStaysUsable(GameTestHelper helper) {
+        try (GameTestPlayer ownerPlayer = GameTestPlayer.join(helper, "HomesOld");
+                GameTestPlayer guestPlayer = GameTestPlayer.join(helper, "HomesOldGuest")) {
+            ServerPlayer owner = ownerPlayer.player();
+            ServerPlayer guest = guestPlayer.player();
+            String tag = "simplehomes_" + owner.getUUID();
+            owner.addTag(tag);
+            ownerPlayer.moveTo(helper, new BlockPos(2, 1, 2));
+            // How a home saved by a build that still allowed the name is stored.
+            HomeData data = HomeData.get(helper.getLevel().getServer());
+            data.setHome(
+                    owner.getUUID(),
+                    "revoke",
+                    HomeLocation.from(owner),
+                    SimpleHomesConfig.maximumHomes());
+            helper.assertTrue(
+                    execute(helper, owner, "home revoke") == 1,
+                    "A home saved as 'revoke' must still teleport");
+            helper.assertTrue(
+                    isUsageError(helper, owner, "sharehome revoke " + guest.getScoreboardName()),
+                    "Granting access to a home named 'revoke' has no command any more");
+            data.grant(owner.getUUID(), "revoke", List.of(guest.getUUID()));
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
+                    "The guest must reach it");
+            helper.assertTrue(
+                    execute(helper, owner, "sharehome revoke revoke " + guest.getScoreboardName())
+                            == 1,
+                    "Its access must still be revocable");
+            helper.assertTrue(
+                    execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 0,
+                    "The guest must be denied after the revocation");
+            ownerPlayer.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner, "sethome revoke") == 0,
+                    "The home can no longer be moved to the reserved name");
+            helper.assertTrue(
+                    data.getHome(owner.getUUID(), "revoke").isPresent(),
+                    "The stored home must survive the refused update");
+        }
+        helper.succeed();
+    }
+
+    public static void sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(
+            GameTestHelper helper) {
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesSuggests")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            helper.assertTrue(
+                    execute(helper, player, "sethome base") == 1, "/sethome must create the home");
+            helper.assertTrue(
+                    execute(helper, player, "sethome mine") == 1, "/sethome must create the home");
+            List<String> suggested = suggestions(helper, player, "sharehome revoke ");
+            helper.assertTrue(
+                    suggested.equals(List.of("base", "mine")),
+                    "/sharehome revoke must suggest the home names before anything is typed, got "
+                            + suggested);
+        }
+        helper.succeed();
+    }
+
     private static List<String> suggestions(
             GameTestHelper helper, ServerPlayer player, String input) {
         var server = helper.getLevel().getServer();
@@ -729,6 +797,19 @@ public final class SimpleHomesGameTests {
         return dispatcher.getCompletionSuggestions(parse).join().getList().stream()
                 .map(Suggestion::getText)
                 .toList();
+    }
+
+    private static boolean isUsageError(
+            GameTestHelper helper, ServerPlayer player, String command) {
+        var server = helper.getLevel().getServer();
+        try {
+            server.getCommands()
+                    .getDispatcher()
+                    .execute(command, server.createCommandSourceStack().withEntity(player));
+            return false;
+        } catch (CommandSyntaxException exception) {
+            return true;
+        }
     }
 
     private static int execute(GameTestHelper helper, ServerPlayer player, String command) {
