@@ -3,5 +3,12 @@
     "utility"
   ],
   "additional_categories": [],
-  "dependency_overrides": {}
+  "dependency_overrides": {
+    "fabric-api": {
+      "curseforge_slug": "fabric-api"
+    },
+    "brainagelib": {
+      "curseforge_slug": "brainagelib"
+    }
+  }
 }
