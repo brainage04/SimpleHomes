@@ -14,7 +14,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.server.level.TicketType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
@@ -24,18 +23,19 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.TicketStorage;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.TicketStorage;
 import net.minecraft.world.phys.Vec3;
 
 public final class SimpleHomesGameTests {
@@ -709,8 +709,8 @@ public final class SimpleHomesGameTests {
     }
 
     private static boolean holdsLoadingTicket(ServerLevel level, ChunkPos chunk) {
-        return level.getDataStorage().computeIfAbsent(TicketStorage.TYPE).getTickets(chunk.pack())
-                .stream()
+        TicketStorage tickets = level.getDataStorage().computeIfAbsent(TicketStorage.TYPE);
+        return tickets.getTickets(chunk.pack()).stream()
                 .anyMatch(ticket -> ticket.getType() == TicketType.PLAYER_LOADING);
     }
 
@@ -733,7 +733,8 @@ public final class SimpleHomesGameTests {
                 1,
                 () -> {
                     arrived[0] = true;
-                    loadedOnArrival[0] = level.getChunkSource().getChunkNow(far.x(), far.z()) != null;
+                    loadedOnArrival[0] =
+                            level.getChunkSource().getChunkNow(far.x(), far.z()) != null;
                 });
         // Another mod's teleport waiting on the same chunk ends: tickets of one type and level are
         // one ticket, so its release removes the ticket this load took as well.

@@ -58,13 +58,19 @@ public final class HomeTeleportService {
         SimpleHomes.FEEDBACK.neutral(player, "Loading %s...", label);
         Vec3 destination = home.destinationWithoutWorld();
         loadThenArrive(
-                level, player, destination, label, unloaded, 1, () -> arrive(player, level, home, label));
+                level,
+                player,
+                destination,
+                label,
+                unloaded,
+                1,
+                () -> arrive(player, level, home, label));
         return 1;
     }
 
     /**
-     * Loads {@code chunks}, then runs {@code arrive} on the server thread once every chunk under the
-     * standing box at {@code destination} is full, unless the player has left by then. Package
+     * Loads {@code chunks}, then runs {@code arrive} on the server thread once every chunk under
+     * the standing box at {@code destination} is full, unless the player has left by then. Package
      * private for the GameTests.
      */
     static void loadThenArrive(
