@@ -1090,7 +1090,13 @@ public final class SimpleHomesGameTests {
 
     public static void playerOnlyCommandsAnswerNonPlayersThroughModFeedback(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
-        for (String command : List.of("sethome base", "home base", "sharehome base @a")) {
+        for (String command :
+                List.of(
+                        "sethome base",
+                        "home base",
+                        "sharehome base @a",
+                        "homeof Someone base",
+                        "sharehome revoke base Someone")) {
             var output = new CapturedCommandOutput();
             server.getCommands().performPrefixedCommand(output.source(server), command);
             helper.assertTrue(
