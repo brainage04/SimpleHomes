@@ -1591,6 +1591,10 @@ public final class SimpleHomesGameTests {
         }
     }
 
+    // The server makes its own storage with this level-less constructor (MinecraftServer.java:325).
+    // It is the only one Fabric and vanilla have, and the common source set compiles against both.
+    // deprecated-api: only NeoForge deprecates it, for one taking a level (SavedDataStorage patch)
+    @SuppressWarnings("deprecation")
     private static SavedDataStorage dataStorage(GameTestHelper helper, Path folder) {
         var server = helper.getLevel().getServer();
         return new SavedDataStorage(folder, server.getFixerUpper(), server.registryAccess());
