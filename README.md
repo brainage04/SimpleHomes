@@ -25,7 +25,7 @@ Home names are case-insensitive and may contain 1-32 letters, numbers, underscor
 - `/homeof <player> <name>` – teleports to that player's home when they have shared it with you, also while they are offline. The same checks as `/home` apply.
 - `/simplehomes` or `/simplehomes help` – lists these commands and your home limit.
 
-Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice. Every command answers the player with a UI click sound, and a command only a player can use, run from the console, gets BrainageLib's shared "This command can only be used by players!" message.
+Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice. Every command except the help page (`/simplehomes` and `/simplehomes help`) answers the player with a UI click sound, and a command only a player can use, run from the console, gets BrainageLib's shared "This command can only be used by players!" message.
 
 ## Known limits
 
