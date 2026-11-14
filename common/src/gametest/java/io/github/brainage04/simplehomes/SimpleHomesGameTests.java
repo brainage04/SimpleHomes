@@ -404,7 +404,8 @@ public final class SimpleHomesGameTests {
     /** A home in water is survivable, so the lava and void refusals leave it usable. */
     public static void aHomeInWaterStillTeleports(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesInWater")) {
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesInWater").gameMode(GameType.SURVIVAL)) {
             ServerPlayer player = owner.player();
             owner.moveTo(helper, new BlockPos(1, 1, 1));
             helper.setBlock(new BlockPos(4, 1, 2), Blocks.WATER);
