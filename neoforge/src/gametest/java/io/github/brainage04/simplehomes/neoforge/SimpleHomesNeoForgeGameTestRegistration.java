@@ -55,6 +55,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::obstructedHomesFailWithoutMovingThePlayer);
         register(
                 event,
+                "a_home_in_water_still_teleports",
+                SimpleHomesGameTests::aHomeInWaterStillTeleports);
+        register(
+                event,
                 "homeof_finds_owners_without_asking_mojang",
                 SimpleHomesGameTests::homeofFindsOwnersWithoutAskingMojang);
         register(
@@ -104,6 +108,14 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "homes_in_lava_or_over_the_void_fail_without_moving_the_player",
                 SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
+        register(
+                event,
+                "a_home_beside_lava_fails_when_the_player_would_touch_it",
+                SimpleHomesGameTests::aHomeBesideLavaFailsWhenThePlayerWouldTouchIt);
+        register(
+                event,
+                "lava_does_not_stop_a_creative_or_spectator_player",
+                SimpleHomesGameTests::lavaDoesNotStopACreativeOrSpectatorPlayer);
         register(
                 event,
                 "a_home_in_lava_in_an_unloaded_chunk_fails_once_the_chunk_loads",

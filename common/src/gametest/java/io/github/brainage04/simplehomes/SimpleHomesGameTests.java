@@ -398,6 +398,30 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /** A home in water is survivable, so the lava and void refusals leave it usable. */
+    public static void aHomeInWaterStillTeleports(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesInWater")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(1, 1, 1));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.WATER);
+            Vec3 inWater = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 1, 2)));
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "water",
+                            new HomeLocation(level.dimension().identifier(), inWater, 0.0F, 0.0F),
+                            SimpleHomesConfig.maximumHomes());
+            helper.assertTrue(
+                    execute(helper, player, "home water") == 1,
+                    "A home in water must teleport, got " + owner.messageTexts());
+            helper.assertTrue(
+                    player.position().equals(inWater),
+                    "A home in water must move the player there, got " + player.position());
+        }
+        helper.succeed();
+    }
+
     public static void obstructedHomesFailWithoutMovingThePlayer(GameTestHelper helper) {
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBuiltOver")) {
             ServerPlayer player = owner.player();
@@ -1090,7 +1114,13 @@ public final class SimpleHomesGameTests {
 
     public static void playerOnlyCommandsAnswerNonPlayersThroughModFeedback(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
-        for (String command : List.of("sethome base", "home base", "sharehome base @a")) {
+        for (String command :
+                List.of(
+                        "sethome base",
+                        "home base",
+                        "sharehome base @a",
+                        "homeof Someone base",
+                        "sharehome revoke base Someone")) {
             var output = new CapturedCommandOutput();
             server.getCommands().performPrefixedCommand(output.source(server), command);
             helper.assertTrue(
@@ -1313,7 +1343,8 @@ public final class SimpleHomesGameTests {
 
     public static void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesDangerous")) {
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesDangerous").gameMode(GameType.SURVIVAL)) {
             ServerPlayer player = owner.player();
             owner.moveTo(helper, new BlockPos(2, 1, 2));
             HomeData data = HomeData.get(level.getServer());
@@ -1374,10 +1405,132 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * A home next to a lava block, with no lava under the centre of its feet, fails once the
+     * player's box would reach into the lava, 0.25 blocks from it, and still works 0.35 blocks from
+     * it, where the box (0.6 wide) stays clear.
+     */
+    public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesBesideLava").gameMode(GameType.SURVIVAL)) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(1, 1, 1));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
+            Vec3 beside = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(3, 1, 2)));
+            HomeData data = HomeData.get(level.getServer());
+            data.setHome(
+                    player.getUUID(),
+                    "edge",
+                    new HomeLocation(
+                            level.dimension().identifier(), beside.add(0.25, 0.0, 0.0), 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            data.setHome(
+                    player.getUUID(),
+                    "near",
+                    new HomeLocation(
+                            level.dimension().identifier(), beside.add(0.15, 0.0, 0.0), 0.0F, 0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            Vec3 before = player.position();
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home edge") == 0,
+                    "A home whose box reaches into lava must be refused");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home whose box reaches into lava must not move the player");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not teleport to home 'edge' because it is in lava.",
+                    0xFF5555);
+            helper.assertTrue(
+                    execute(helper, player, "home near") == 1,
+                    "A home whose box stays clear of the lava must still teleport");
+            helper.assertTrue(
+                    player.position().equals(beside.add(0.15, 0.0, 0.0)),
+                    "A home whose box stays clear of the lava must move the player there, got "
+                            + player.position());
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Lava cannot hurt a creative or spectator player, so a home in lava still takes them there,
+     * while a home over the void, whose damage gets past their protection, is still refused.
+     */
+    public static void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer creative =
+                        GameTestPlayer.join(helper, "HomesCreative").gameMode(GameType.CREATIVE);
+                GameTestPlayer spectator =
+                        GameTestPlayer.join(helper, "HomesSpectator")
+                                .gameMode(GameType.SPECTATOR)) {
+            HomeData data = HomeData.get(level.getServer());
+            BlockPos lava = helper.absolutePos(new BlockPos(4, 1, 2));
+            helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
+            Vec3 inLava = Vec3.atBottomCenterOf(lava);
+            for (GameTestPlayer owner : List.of(creative, spectator)) {
+                ServerPlayer player = owner.player();
+                owner.moveTo(helper, new BlockPos(1, 1, 1));
+                data.setHome(
+                        player.getUUID(),
+                        "lava",
+                        new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
+                        SimpleHomesConfig.maximumHomes());
+                helper.assertTrue(
+                        execute(helper, player, "home lava") == 1,
+                        "A home in lava must still take "
+                                + player.getScoreboardName()
+                                + " there, got "
+                                + owner.messageTexts());
+                helper.assertTrue(
+                        player.position().equals(inLava),
+                        "The player must arrive in the lava, got " + player.position());
+            }
+
+            ServerPlayer player = creative.player();
+            creative.moveTo(helper, new BlockPos(1, 1, 1));
+            BlockPos overVoid = helper.absolutePos(new BlockPos(2, 1, 2)).offset(3_000, 0, 3_000);
+            level.getChunk(
+                    SectionPos.blockToSectionCoord(overVoid.getX()),
+                    SectionPos.blockToSectionCoord(overVoid.getZ()));
+            for (int y = level.getMinY(); y <= overVoid.getY(); y++) {
+                level.setBlockAndUpdate(
+                        new BlockPos(overVoid.getX(), y, overVoid.getZ()),
+                        Blocks.AIR.defaultBlockState());
+            }
+            data.setHome(
+                    player.getUUID(),
+                    "void",
+                    new HomeLocation(
+                            level.dimension().identifier(),
+                            Vec3.atBottomCenterOf(overVoid),
+                            0.0F,
+                            0.0F),
+                    SimpleHomesConfig.maximumHomes());
+            Vec3 before = player.position();
+            creative.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "home void") == 0,
+                    "A home over the void must still be refused for a creative player");
+            helper.assertTrue(
+                    player.position().equals(before),
+                    "A home over the void must not move a creative player");
+            assertMessage(
+                    helper,
+                    creative,
+                    "[SimpleHomes] Could not teleport to home 'void' because it is over the void.",
+                    0xFF5555);
+        }
+        helper.succeed();
+    }
+
     public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.
-        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesLavaFar");
+        GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesLavaFar").gameMode(GameType.SURVIVAL);
         ServerPlayer player = owner.player();
         owner.moveTo(helper, new BlockPos(2, 1, 2));
         BlockPos here = helper.absolutePos(new BlockPos(2, 1, 2));

@@ -55,6 +55,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void aHomeInWaterStillTeleports(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInWaterStillTeleports(helper);
+    }
+
+    @GameTest
     public void homeofFindsOwnersWithoutAskingMojang(GameTestHelper helper) {
         SimpleHomesGameTests.homeofFindsOwnersWithoutAskingMojang(helper);
     }
@@ -120,6 +125,16 @@ public final class SimpleHomesGameTest {
     @GameTest
     public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
         SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
+    }
+
+    @GameTest
+    public void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(helper);
+    }
+
+    @GameTest
+    public void lavaDoesNotStopACreativeOrSpectatorPlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.lavaDoesNotStopACreativeOrSpectatorPlayer(helper);
     }
 
     @GameTest(maxTicks = 1000000)
