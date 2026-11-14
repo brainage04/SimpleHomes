@@ -1313,7 +1313,8 @@ public final class SimpleHomesGameTests {
 
     public static void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesDangerous")) {
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesDangerous").gameMode(GameType.SURVIVAL)) {
             ServerPlayer player = owner.player();
             owner.moveTo(helper, new BlockPos(2, 1, 2));
             HomeData data = HomeData.get(level.getServer());
@@ -1381,7 +1382,8 @@ public final class SimpleHomesGameTests {
      */
     public static void aHomeBesideLavaFailsWhenThePlayerWouldTouchIt(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesBesideLava")) {
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesBesideLava").gameMode(GameType.SURVIVAL)) {
             ServerPlayer player = owner.player();
             owner.moveTo(helper, new BlockPos(1, 1, 1));
             helper.setBlock(new BlockPos(4, 1, 2), Blocks.LAVA);
@@ -1497,7 +1499,8 @@ public final class SimpleHomesGameTests {
     public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         // Closed inside the final step, which runs after this method has returned.
-        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesLavaFar");
+        GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesLavaFar").gameMode(GameType.SURVIVAL);
         ServerPlayer player = owner.player();
         owner.moveTo(helper, new BlockPos(2, 1, 2));
         BlockPos here = helper.absolutePos(new BlockPos(2, 1, 2));
