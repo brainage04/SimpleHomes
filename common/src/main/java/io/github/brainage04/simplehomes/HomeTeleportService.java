@@ -290,7 +290,9 @@ public final class HomeTeleportService {
         boolean lavaHurts =
                 !player.getAbilities().invulnerable
                         || level.damageSources().lava().is(DamageTypeTags.BYPASSES_INVULNERABILITY);
-        AABB box = player.getBoundingBox().move(destination.subtract(player.position()));
+        // The largest of the player's poses (Avatar.java:24-36): a player who crouches or crawls
+        // now can stand up there, into lava that their present box would miss.
+        AABB box = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
         for (BlockPos pos : BlockPos.betweenClosed(box.deflate(1.0E-5F))) {
             FluidState fluid = level.getFluidState(pos);
             if (lavaHurts
