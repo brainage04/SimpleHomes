@@ -98,8 +98,8 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 "a_home_inside_the_ground_of_an_unloaded_chunk_still_fails",
                 SimpleHomesGameTests::aHomeInsideTheGroundOfAnUnloadedChunkStillFails);
         // vanillaTpLeavesTheDestinationChunkUnloaded runs on Fabric only: on NeoForge the
-        // destination chunk was loaded right after /tp in a GameTest run on 14 Nov 2026, and the
-        // test describes vanilla's /tp, not this mod.
+        // destination chunk was loaded right after /tp in a GameTest run on 14 Nov 2026, for a
+        // reason not yet found, and the test describes vanilla's /tp, not this mod.
         register(
                 event,
                 "an_old_block_only_home_in_an_unloaded_chunk_lands_on_its_block",
