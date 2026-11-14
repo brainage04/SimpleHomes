@@ -53,12 +53,7 @@ public final class HomeTeleportService {
         // ticks later.
         SimpleHomes.FEEDBACK.neutral(player, "Loading %s...", label);
         loadThenArrive(
-                level,
-                player,
-                destination,
-                label,
-                1,
-                () -> arrive(player, level, home, label));
+                level, player, destination, label, 1, () -> arrive(player, level, home, label));
         return 1;
     }
 
