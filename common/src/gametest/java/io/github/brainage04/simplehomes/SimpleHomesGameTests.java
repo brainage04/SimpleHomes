@@ -867,12 +867,7 @@ public final class SimpleHomesGameTests {
         ChunkPos far = farChunk(helper, 144_000);
         boolean[] arrived = new boolean[1];
         HomeTeleportService.loadThenArrive(
-                level,
-                owner.player(),
-                middleOf(far),
-                "the test spot",
-                1,
-                () -> arrived[0] = true);
+                level, owner.player(), middleOf(far), "the test spot", 1, () -> arrived[0] = true);
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
         owner.close();
         long started = System.nanoTime();
