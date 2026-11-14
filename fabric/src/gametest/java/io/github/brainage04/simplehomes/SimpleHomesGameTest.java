@@ -98,4 +98,47 @@ public final class SimpleHomesGameTest {
     public void sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(GameTestHelper helper) {
         SimpleHomesGameTests.sharehomeRevokeSuggestsHomeNamesBeforeAnythingIsTyped(helper);
     }
+
+    // The GameTest server ticks as fast as it can, so a tick budget cannot bound a wait for a chunk
+    // load (20000 ticks took 3 s on one host and 90 s on another, 14 Nov 2026). These tests check
+    // 2 min of wall time themselves, and the budget is only a backstop above that.
+    @GameTest(maxTicks = 1000000)
+    public void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInUnloadedChunksTeleportAfterLoadingThem(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aHomeInsideTheGroundOfAnUnloadedChunkStillFails(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInsideTheGroundOfAnUnloadedChunkStillFails(helper);
+    }
+
+    @GameTest
+    public void vanillaTpLeavesTheDestinationChunkUnloaded(GameTestHelper helper) {
+        SimpleHomesGameTests.vanillaTpLeavesTheDestinationChunkUnloaded(helper);
+    }
+
+    @GameTest
+    public void homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.homesInLavaOrOverTheVoidFailWithoutMovingThePlayer(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
+        SimpleHomesGameTests.aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(GameTestHelper helper) {
+        SimpleHomesGameTests.anOldBlockOnlyHomeInAnUnloadedChunkLandsOnItsBlock(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo(GameTestHelper helper) {
+        SimpleHomesGameTests.aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo(helper);
+    }
+
+    @GameTest(maxTicks = 1000000)
+    public void aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(GameTestHelper helper) {
+        SimpleHomesGameTests.aFinishedLoadLeavesTheTicketAnotherLoadStillNeeds(helper);
+    }
 }
