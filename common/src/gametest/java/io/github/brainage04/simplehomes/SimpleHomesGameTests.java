@@ -1024,6 +1024,71 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    public static void aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // Closed inside the final step, which runs after this method has returned.
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesLavaFar");
+        ServerPlayer player = owner.player();
+        owner.moveTo(helper, new BlockPos(2, 1, 2));
+        BlockPos here = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos lava =
+                new BlockPos(
+                        here.getX() + 100_000,
+                        level.getHeight(Heightmap.Types.MOTION_BLOCKING, here.getX(), here.getZ()),
+                        here.getZ() + 96_000);
+        int chunkX = SectionPos.blockToSectionCoord(lava.getX());
+        int chunkZ = SectionPos.blockToSectionCoord(lava.getZ());
+        helper.assertTrue(
+                !level.hasChunk(chunkX, chunkZ),
+                "The home's chunk must not be loaded before /home");
+        // Placing the lava loads the chunk, so the steps below wait for it to unload before /home.
+        level.setBlock(lava, Blocks.LAVA.defaultBlockState(), Block.UPDATE_CLIENTS);
+        HomeData.get(level.getServer())
+                .setHome(
+                        player.getUUID(),
+                        "lava",
+                        new HomeLocation(
+                                level.dimension().identifier(),
+                                Vec3.atBottomCenterOf(lava),
+                                0.0F,
+                                0.0F),
+                        SimpleHomesConfig.maximumHomes());
+        Vec3 before = player.position();
+        long started = System.nanoTime();
+        helper.startSequence()
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    level.getChunkSource().getChunkNow(chunkX, chunkZ) == null,
+                                    "The home's chunk must unload before /home");
+                        })
+                .thenExecute(
+                        () -> {
+                            owner.clearMessages();
+                            helper.assertTrue(
+                                    execute(helper, player, "home lava") == 1,
+                                    "A home in a chunk nobody loaded must be accepted while its"
+                                            + " chunk loads");
+                        })
+                .thenWaitUntil(
+                        () -> {
+                            assertStillLoading(helper, started);
+                            helper.assertTrue(
+                                    owner.received(
+                                            "[SimpleHomes] Could not teleport to home 'lava'"
+                                                    + " because it is in lava."),
+                                    "A home in lava in a chunk nobody loaded must fail once the"
+                                            + " chunk is loaded, got "
+                                            + owner.messageTexts());
+                            helper.assertTrue(
+                                    player.position().equals(before),
+                                    "A home in lava must not move the player");
+                        })
+                .thenExecute(owner::close)
+                .thenSucceed();
+    }
+
     private static List<String> suggestions(
             GameTestHelper helper, ServerPlayer player, String input) {
         var server = helper.getLevel().getServer();

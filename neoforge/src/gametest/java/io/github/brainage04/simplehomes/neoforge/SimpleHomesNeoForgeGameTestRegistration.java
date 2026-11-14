@@ -86,6 +86,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::homesInLavaOrOverTheVoidFailWithoutMovingThePlayer);
         register(
                 event,
+                "a_home_in_lava_in_an_unloaded_chunk_fails_once_the_chunk_loads",
+                SimpleHomesGameTests::aHomeInLavaInAnUnloadedChunkFailsOnceTheChunkLoads);
+        register(
+                event,
                 "a_second_home_request_while_the_chunk_loads_waits_for_the_load_too",
                 SimpleHomesGameTests::aSecondHomeRequestWhileTheChunkLoadsWaitsForTheLoadToo);
         register(
