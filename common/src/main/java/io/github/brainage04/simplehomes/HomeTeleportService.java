@@ -8,25 +8,34 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.PointedDripstoneBlock;
+import net.minecraft.world.level.block.PowderSnowBlock;
+import net.minecraft.world.level.block.SpeleothemBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.SpeleothemThickness;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class HomeTeleportService {
@@ -40,6 +49,12 @@ public final class HomeTeleportService {
 
     /** How many times a teleport loads its chunks before it gives up on them staying loaded. */
     private static final int LOAD_ATTEMPTS = 3;
+
+    /**
+     * The deepest the drop check looks for a floor, far past any safe fall distance a player has
+     * without an operator or a mod changing it (Attributes.java:86-87 allows up to 1024).
+     */
+    private static final double MAX_DROP = 128.0;
 
     private HomeTeleportService() {}
 
@@ -149,6 +164,13 @@ public final class HomeTeleportService {
         if (!fits(level, player, destination)) {
             SimpleHomes.FEEDBACK.error(
                     player, "Could not teleport to %s because it is obstructed.", label);
+            return false;
+        }
+        if (dropHurts(level, player, destination)) {
+            SimpleHomes.FEEDBACK.error(
+                    player,
+                    "Could not teleport to %s because it is in the air above a long drop.",
+                    label);
             return false;
         }
         boolean teleported =
@@ -321,6 +343,82 @@ public final class HomeTeleportService {
             return lava ? Deadly.LAVA : Deadly.NONE;
         }
         return Deadly.VOID;
+    }
+
+    /**
+     * Whether the fall from {@code destination} to the floor below would hurt the player, by the
+     * game's rule: damage is floor((fall + 1e-6 - safe_fall_distance) * modifier *
+     * fall_damage_multiplier) (LivingEntity.java:1851-1862), and a landing without a fall deals
+     * none (Entity.java:1589-1590). Every guess errs towards refusing:
+     *
+     * <ul>
+     *   <li>The floor is the first block collision below the standing box, judged at the
+     *       destination height as {@link #fits} judges it.
+     *   <li>Water, a block tagged as resetting fall damage and powder snow reset the fall
+     *       (Entity.java:768-775, 1680-1684, 3030-3032). A landing in one deals nothing, and below
+     *       one the fall counts from its top, above every point where the game can reset it.
+     *   <li>A stalagmite tip anywhere under the box adds 2.5 blocks and doubles the damage
+     *       (PointedDripstoneBlock.java:53-60). Blocks that soften a landing, Slow Falling and
+     *       entities to stand on get no credit.
+     *   <li>No floor within the reach counts as hurting: a fall that deep hurts, and past {@link
+     *       #MAX_DROP} it may go on any distance.
+     * </ul>
+     */
+    private static boolean dropHurts(ServerLevel level, ServerPlayer player, Vec3 destination) {
+        // A player who may fly takes no fall damage (Player.java:1437-1441), and a creative or
+        // spectator player cannot be hurt by it (Player.java:677-679).
+        if (player.getAbilities().mayfly || player.getAbilities().invulnerable) {
+            return false;
+        }
+        double safeDistance = player.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
+        double multiplier = player.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER);
+        double reach = Math.clamp(Math.ceil(safeDistance + 1.0 / multiplier) + 1.0, 1.0, MAX_DROP);
+        AABB box = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
+        Iterable<VoxelShape> below =
+                level.getBlockCollisionsFromContext(
+                        CollisionContext.positionContext(destination.y()),
+                        box.setMinY(box.minY - reach).setMaxY(box.minY));
+        double fall = -Shapes.collide(Direction.Axis.Y, box, below, -reach);
+        if (fall >= reach) {
+            return true;
+        }
+        double floor = box.minY - fall;
+        double counted = fall;
+        Vec3 centre = box.getCenter();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (double y = box.minY - 1.0E-4; y > floor; y -= 1.0) {
+            pos.set(centre.x, y, centre.z);
+            BlockState state = level.getBlockState(pos);
+            if (state.getFluidState().is(FluidTags.WATER)
+                    || state.is(BlockTags.FALL_DAMAGE_RESETTING)
+                    || state.getBlock() instanceof PowderSnowBlock) {
+                if (pos.getY() <= floor) {
+                    return false;
+                }
+                counted = Math.min(counted, pos.getY() + 1.0 - floor);
+            }
+        }
+        if (counted <= 0.0) {
+            return false;
+        }
+        double added = 0.0;
+        double modifier = 1.0;
+        int floorY = Mth.floor(floor - 1.0E-6);
+        for (BlockPos under :
+                BlockPos.betweenClosed(
+                        BlockPos.containing(box.minX, floorY, box.minZ),
+                        BlockPos.containing(box.maxX, floorY, box.maxZ))) {
+            BlockState state = level.getBlockState(under);
+            if (state.getBlock() instanceof PointedDripstoneBlock
+                    && state.getValue(SpeleothemBlock.TIP_DIRECTION) == Direction.UP
+                    && state.getValue(SpeleothemBlock.THICKNESS) == SpeleothemThickness.TIP) {
+                // The numbers PointedDripstoneBlock.fallOn passes (PointedDripstoneBlock.java:56),
+                // which no API exposes.
+                added = 2.5;
+                modifier = 2.0;
+            }
+        }
+        return Mth.floor((counted + added + 1.0E-6 - safeDistance) * modifier * multiplier) > 0;
     }
 
     private enum Deadly {
