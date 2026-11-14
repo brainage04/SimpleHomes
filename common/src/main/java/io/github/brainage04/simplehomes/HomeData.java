@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
@@ -38,12 +37,12 @@ public final class HomeData extends SavedData {
                                                     .forGetter(HomeData::sharesSnapshot))
                                     .apply(instance, HomeData::new));
 
+    // No vanilla datafixer applies to mod data, and map data's fixes would run on this file. Both
+    // loaders skip datafixing for a null type: Fabric API's fabric-object-builder-api-v1
+    // SavedDataStorageMixin.handleNullDataFixType and NeoForge's SavedDataType/SavedDataStorage
+    // patches (26.3.0.99).
     public static final SavedDataType<HomeData> TYPE =
-            new SavedDataType<>(
-                    SimpleHomes.of("homes"),
-                    HomeData::new,
-                    CODEC,
-                    DataFixTypes.SAVED_DATA_MAP_DATA);
+            new SavedDataType<>(SimpleHomes.of("homes"), HomeData::new, CODEC, null);
 
     private final Map<UUID, Map<String, HomeLocation>> homes = new HashMap<>();
     private final Map<UUID, Map<String, Set<UUID>>> shares = new HashMap<>();
