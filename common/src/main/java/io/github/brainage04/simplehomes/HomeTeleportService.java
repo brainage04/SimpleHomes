@@ -2,7 +2,6 @@ package io.github.brainage04.simplehomes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,8 +45,8 @@ public final class HomeTeleportService {
             SimpleHomes.FEEDBACK.error(player, "The dimension for %s is unavailable.", label);
             return 0;
         }
-        List<ChunkPos> unloaded = chunksToLoad(level, player, home.destinationWithoutWorld());
-        if (unloaded.isEmpty()) {
+        Vec3 destination = home.destinationWithoutWorld();
+        if (chunksToLoad(level, player, destination).isEmpty()) {
             return arrive(player, level, home, label) ? 1 : 0;
         }
         // The checks below read blocks, so the chunk has to be loaded first, and loading it here
@@ -56,31 +55,29 @@ public final class HomeTeleportService {
         // (PlayerSpawnFinder.java:114-121); the answer reaches the player from the callback a few
         // ticks later.
         SimpleHomes.FEEDBACK.neutral(player, "Loading %s...", label);
-        Vec3 destination = home.destinationWithoutWorld();
         loadThenArrive(
                 level,
                 player,
                 destination,
                 label,
-                unloaded,
                 1,
                 () -> arrive(player, level, home, label));
         return 1;
     }
 
     /**
-     * Loads {@code chunks}, then runs {@code arrive} on the server thread once every chunk under
-     * the standing box at {@code destination} is full, unless the player has left by then. Package
-     * private for the GameTests.
+     * Loads every chunk under the standing box at {@code destination}, then runs {@code arrive} on
+     * the server thread once they are all full, unless the player has left by then. Package private
+     * for the GameTests.
      */
     static void loadThenArrive(
             ServerLevel level,
             ServerPlayer player,
             Vec3 destination,
             String label,
-            List<ChunkPos> chunks,
             int attempt,
             Runnable arrive) {
+        List<ChunkPos> chunks = chunksUnder(player, destination);
         load(level, chunks)
                 .whenCompleteAsync(
                         (ignored, failure) -> {
@@ -94,9 +91,10 @@ public final class HomeTeleportService {
                                     // one ticket (TicketStorage.java:147-156) and can take it away
                                     // before this load is done, which completes the load with an
                                     // unloaded chunk (GenerationChunkHolder.java:83-91, 164-167).
-                                    List<ChunkPos> missing =
-                                            chunksToLoad(level, player, destination);
-                                    if (missing.isEmpty()) {
+                                    // The next attempt loads every chunk again, not only the
+                                    // missing ones: the release below would otherwise take the
+                                    // ticket off a chunk that is still there.
+                                    if (chunksToLoad(level, player, destination).isEmpty()) {
                                         arrive.run();
                                     } else if (attempt < LOAD_ATTEMPTS) {
                                         loadThenArrive(
@@ -104,7 +102,6 @@ public final class HomeTeleportService {
                                                 player,
                                                 destination,
                                                 label,
-                                                missing,
                                                 attempt + 1,
                                                 arrive);
                                     } else {
@@ -173,30 +170,39 @@ public final class HomeTeleportService {
     }
 
     /**
-     * The chunks under the standing box at {@code destination} that are not loaded. Nothing here
-     * reads a block: a floor lookup needs the chunk, which is why the destination used for this
-     * question is the one that needs no world ({@link HomeLocation#destinationWithoutWorld()}).
+     * The chunks under the standing box at {@code destination}. Nothing here reads a block: a floor
+     * lookup needs the chunk, which is why the destination used for this question is the one that
+     * needs no world ({@link HomeLocation#destinationWithoutWorld()}).
      */
-    private static List<ChunkPos> chunksToLoad(
-            ServerLevel level, ServerPlayer player, Vec3 destination) {
+    private static List<ChunkPos> chunksUnder(ServerPlayer player, Vec3 destination) {
         AABB standing = player.getLocalBoundsForPose(Pose.STANDING).move(destination);
-        Set<ChunkPos> unloaded = new LinkedHashSet<>();
+        List<ChunkPos> chunks = new ArrayList<>();
         for (int x = SectionPos.posToSectionCoord(standing.minX);
                 x <= SectionPos.posToSectionCoord(standing.maxX);
                 x++) {
             for (int z = SectionPos.posToSectionCoord(standing.minZ);
                     z <= SectionPos.posToSectionCoord(standing.maxZ);
                     z++) {
-                // Not hasChunk: it is already true while another teleport's ticket is still
-                // loading the chunk (ServerChunkCache.java:257-262), and reading a block there
-                // waits for the load on the server thread (ServerChunkCache.java:143-172).
-                // getChunkNow answers only once the chunk is full (ServerChunkCache.java:175-203).
-                if (level.getChunkSource().getChunkNow(x, z) == null) {
-                    unloaded.add(new ChunkPos(x, z));
-                }
+                chunks.add(new ChunkPos(x, z));
             }
         }
-        return new ArrayList<>(unloaded);
+        return chunks;
+    }
+
+    /** The chunks under the standing box at {@code destination} that are not full. */
+    private static List<ChunkPos> chunksToLoad(
+            ServerLevel level, ServerPlayer player, Vec3 destination) {
+        List<ChunkPos> unloaded = new ArrayList<>();
+        for (ChunkPos chunk : chunksUnder(player, destination)) {
+            // Not hasChunk: it is already true while another teleport's ticket is still loading the
+            // chunk (ServerChunkCache.java:257-262), and reading a block there waits for the load
+            // on the server thread (ServerChunkCache.java:143-172). getChunkNow answers only once
+            // the chunk is full (ServerChunkCache.java:175-203).
+            if (level.getChunkSource().getChunkNow(chunk.x(), chunk.z()) == null) {
+                unloaded.add(chunk);
+            }
+        }
+        return unloaded;
     }
 
     /**
