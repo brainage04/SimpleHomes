@@ -511,6 +511,11 @@ public final class SimpleHomesGameTests {
     /// poll reads {@code progress}; a value that differs from the last one restarts the clock, so a
     /// host that is merely slow keeps making progress and never trips the bound. A chunk's
     /// generation status is the progress of a load, and its presence is the progress of an unload.
+    ///
+    /// The check runs on the tick path, not inside the wait's assertion: a sequence's assertion
+    /// failure is swallowed while the test still has ticks left (GameTestSequence.java:78-82), so a
+    /// bound raised there only reaches the test at tick exhaustion. A runnable registered with
+    /// {@link GameTestHelper#runAfterDelay} fails the test at once (GameTestInfo.java:126-134).
     private static final class LoadProgress {
         private final Supplier<Object> progress;
         private Object last;
@@ -518,6 +523,17 @@ public final class SimpleHomesGameTests {
 
         private LoadProgress(Supplier<Object> progress) {
             this.progress = progress;
+        }
+
+        /// Starts the stall check, which reschedules itself every tick. The chain ends with the
+        /// test: a done test's tick runnables are never run again (GameTestInfo.java:83-84).
+        private void watch(GameTestHelper helper) {
+            helper.runAfterDelay(
+                    1,
+                    () -> {
+                        assertStillLoading(helper);
+                        watch(helper);
+                    });
         }
 
         private void assertStillLoading(GameTestHelper helper) {
@@ -581,9 +597,9 @@ public final class SimpleHomesGameTests {
         // chunk being loaded again is not what this waits for: the arrival is.
         LoadProgress loading =
                 new LoadProgress(() -> chunkProgress(level, new ChunkPos(farChunkX, farChunkZ)));
+        loading.watch(helper);
         helper.succeedWhen(
                 () -> {
-                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             player.position().equals(expected),
                             "The player must arrive at the home: expected "
@@ -626,9 +642,9 @@ public final class SimpleHomesGameTests {
                 "A home in a chunk nobody loaded is accepted while its chunk loads");
         LoadProgress loading =
                 new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
+        loading.watch(helper);
         helper.succeedWhen(
                 () -> {
-                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             owner.received(
                                     "[SimpleHomes] Could not teleport to home 'buried' because it"
@@ -692,9 +708,9 @@ public final class SimpleHomesGameTests {
                 "Each /home must say once that the home is loading, got " + owner.messageTexts());
         LoadProgress loading =
                 new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
+        loading.watch(helper);
         helper.succeedWhen(
                 () -> {
-                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             player.position().equals(expected),
                             "The player must arrive at the home: expected "
@@ -724,10 +740,10 @@ public final class SimpleHomesGameTests {
         HomeTeleportService.load(level, List.of(far));
         HomeTeleportService.release(level, List.of(far));
         LoadProgress loading = new LoadProgress(() -> chunkProgress(level, far));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     first.isDone(), "The first teleport's load must finish");
                         })
@@ -743,7 +759,6 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(far.x(), far.z()) == null,
                                     "The last teleport to end must give the ticket back");
@@ -796,10 +811,10 @@ public final class SimpleHomesGameTests {
         // one ticket, so its release removes the ticket this load took as well.
         level.getChunkSource().removeTicketWithRadius(TicketType.PLAYER_LOADING, far, 0);
         LoadProgress loading = new LoadProgress(() -> chunkProgress(level, far));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(arrived[0], "The teleport must arrive");
                         })
                 .thenExecute(
@@ -812,7 +827,6 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, far),
                                     "The ticket taken again must be given back");
@@ -836,10 +850,10 @@ public final class SimpleHomesGameTests {
                 });
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
         LoadProgress loading = new LoadProgress(() -> chunkProgress(level, far));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     owner.received(
                                             "[SimpleHomes] Could not teleport to the test spot."),
@@ -897,11 +911,11 @@ public final class SimpleHomesGameTests {
                 "[SimpleHomes] Could not teleport to the test spot because its chunk would not"
                         + " stay loaded.";
         LoadProgress loading = new LoadProgress(() -> chunkProgress(level, west));
+        loading.watch(helper);
         boolean[] westWithoutTicket = new boolean[1];
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             if (!arrived[0] && !holdsLoadingTicket(level, west)) {
                                 westWithoutTicket[0] = true;
                             }
@@ -927,7 +941,6 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, west)
                                             && !holdsLoadingTicket(level, east),
@@ -946,10 +959,10 @@ public final class SimpleHomesGameTests {
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
         owner.close();
         LoadProgress loading = new LoadProgress(() -> chunkProgress(level, far));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, far),
                                     "The ticket must be given back when the player has left");
@@ -1354,10 +1367,10 @@ public final class SimpleHomesGameTests {
         Vec3 expected = Vec3.upFromBottomCenterOf(far, 0.5D);
         LoadProgress loading =
                 new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(chunkX, chunkZ) == null,
                                     "The home's chunk must unload before /home");
@@ -1370,7 +1383,6 @@ public final class SimpleHomesGameTests {
                                                 + " while its chunk loads"))
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     player.position().equals(expected),
                                     "It must land on the slab in its block, the floor rule"
@@ -1603,10 +1615,10 @@ public final class SimpleHomesGameTests {
         Vec3 before = player.position();
         LoadProgress loading =
                 new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
+        loading.watch(helper);
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(chunkX, chunkZ) == null,
                                     "The home's chunk must unload before /home");
@@ -1621,7 +1633,6 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     owner.received(
                                             "[SimpleHomes] Could not teleport to home 'lava'"
