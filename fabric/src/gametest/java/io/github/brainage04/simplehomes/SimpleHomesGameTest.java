@@ -105,8 +105,9 @@ public final class SimpleHomesGameTest {
     }
 
     // The GameTest server ticks as fast as it can, so a tick budget cannot bound a wait for a chunk
-    // load (20000 ticks took 3 s on one host and 90 s on another, 14 Nov 2026). These tests check
-    // 2 min of wall time themselves, and the budget is only a backstop above that.
+    // load (20000 ticks took 3 s on one host and 90 s on another, 14 Nov 2026). These tests fail
+    // themselves when the chunk makes no generation progress for 2 min of wall time, and the
+    // budget is only a backstop above that.
     @GameTest(maxTicks = 1000000)
     public void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
         SimpleHomesGameTests.homesInUnloadedChunksTeleportAfterLoadingThem(helper);

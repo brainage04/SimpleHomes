@@ -12,9 +12,11 @@ import io.netty.util.ReferenceCountUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
@@ -40,6 +42,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
@@ -497,14 +500,52 @@ public final class SimpleHomesGameTests {
     // The GameTest server runs its ticks as fast as it can, measured between 20 and 7000 ticks a
     // second on the machines that ran these tests on 14 Nov 2026, so a tick budget cannot bound a
     // wait for a chunk load: the load needs wall time, and the test itself checks that instead.
-    // Two minutes, because one far chunk took longer than 30 s to load while the two other tests
-    // waiting on far chunks in the same batch finished.
-    private static final long LOAD_TIMEOUT_NANOS = 120_000_000_000L;
+    //
+    // A total wall-clock bound is not load-independent either: the same three tests passed in 12 s
+    // on an idle host and ran out 2 min on a host whose heavy slots were full, with the chunk
+    // still generating. What the wait can bound is a stall: the chunk's generation status is read
+    // every poll, and the wait fails only when that status has not moved for two minutes. A host
+    // that is merely slow keeps making progress and never trips it.
+    private static final long LOAD_STALL_TIMEOUT_NANOS = 120_000_000_000L;
 
-    private static void assertStillLoading(GameTestHelper helper, long started) {
-        if (System.nanoTime() - started > LOAD_TIMEOUT_NANOS) {
-            helper.fail("The chunk did not load or unload within 2 min of wall time");
+    /// Fails the test when what it waits on has made no progress for two minutes of wall time.
+    /// Each poll reads {@code progress}; a value that differs from the last one restarts the clock,
+    /// so a host that is merely slow keeps making progress and never trips the bound. A chunk's
+    /// generation status is the progress of a load, and its presence is the progress of an unload.
+    private static final class LoadProgress {
+        private final Supplier<Object> progress;
+        private Object last;
+        private long lastProgressNanos = System.nanoTime();
+
+        private LoadProgress(Supplier<Object> progress) {
+            this.progress = progress;
         }
+
+        private void assertStillLoading(GameTestHelper helper) {
+            Object now = progress.get();
+            long nanos = System.nanoTime();
+            if (!Objects.equals(now, last)) {
+                last = now;
+                lastProgressNanos = nanos;
+                return;
+            }
+            if (nanos - lastProgressNanos > LOAD_STALL_TIMEOUT_NANOS) {
+                helper.fail(
+                        "The chunk made no progress for 2 min of wall time, still at " + now);
+            }
+        }
+    }
+
+    /// What a wait on {@code chunk} can watch for progress: its generation status and its loading
+    /// ticket level. A load moves the status up; an unload raises the level and then drops the
+    /// holder, so a wait for either sees the value change as the chunk moves.
+    private static Object chunkProgress(ServerLevel level, ChunkPos chunk) {
+        return level.getChunkSource().chunkMap.getLatestStatus(chunk.pack())
+                + "/"
+                + level.getChunkSource()
+                        .chunkMap
+                        .getDistanceManager()
+                        .getChunkLevel(chunk.pack(), false);
     }
 
     public static void homesInUnloadedChunksTeleportAfterLoadingThem(GameTestHelper helper) {
@@ -540,10 +581,11 @@ public final class SimpleHomesGameTests {
         // The chunk ticket is given back once the teleport attempt is done, and a joined test
         // player never adds the ticket of its own position (its connection does not tick), so the
         // chunk being loaded again is not what this waits for: the arrival is.
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, new ChunkPos(farChunkX, farChunkZ)));
         helper.succeedWhen(
                 () -> {
-                    assertStillLoading(helper, started);
+                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             player.position().equals(expected),
                             "The player must arrive at the home: expected "
@@ -584,10 +626,11 @@ public final class SimpleHomesGameTests {
         helper.assertTrue(
                 execute(helper, player, "home buried") == 1,
                 "A home in a chunk nobody loaded is accepted while its chunk loads");
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
         helper.succeedWhen(
                 () -> {
-                    assertStillLoading(helper, started);
+                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             owner.received(
                                     "[SimpleHomes] Could not teleport to home 'buried' because it"
@@ -649,10 +692,11 @@ public final class SimpleHomesGameTests {
                                         "[SimpleHomes] Loading home 'far'...",
                                         "[SimpleHomes] Loading home 'far'...")),
                 "Each /home must say once that the home is loading, got " + owner.messageTexts());
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
         helper.succeedWhen(
                 () -> {
-                    assertStillLoading(helper, started);
+                    loading.assertStillLoading(helper);
                     helper.assertTrue(
                             player.position().equals(expected),
                             "The player must arrive at the home: expected "
@@ -681,11 +725,12 @@ public final class SimpleHomesGameTests {
         CompletableFuture<?> first = HomeTeleportService.load(level, List.of(far));
         HomeTeleportService.load(level, List.of(far));
         HomeTeleportService.release(level, List.of(far));
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, far));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     first.isDone(), "The first teleport's load must finish");
                         })
@@ -701,7 +746,7 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(far.x(), far.z()) == null,
                                     "The last teleport to end must give the ticket back");
@@ -753,11 +798,12 @@ public final class SimpleHomesGameTests {
         // Another mod's teleport waiting on the same chunk ends: tickets of one type and level are
         // one ticket, so its release removes the ticket this load took as well.
         level.getChunkSource().removeTicketWithRadius(TicketType.PLAYER_LOADING, far, 0);
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, far));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(arrived[0], "The teleport must arrive");
                         })
                 .thenExecute(
@@ -770,7 +816,7 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, far),
                                     "The ticket taken again must be given back");
@@ -793,11 +839,12 @@ public final class SimpleHomesGameTests {
                     throw new IllegalStateException("A GameTest arrival that fails on purpose");
                 });
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, far));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     owner.received(
                                             "[SimpleHomes] Could not teleport to the test spot."),
@@ -854,12 +901,13 @@ public final class SimpleHomesGameTests {
         String refusal =
                 "[SimpleHomes] Could not teleport to the test spot because its chunk would not"
                         + " stay loaded.";
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, west));
         boolean[] westWithoutTicket = new boolean[1];
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             if (!arrived[0] && !holdsLoadingTicket(level, west)) {
                                 westWithoutTicket[0] = true;
                             }
@@ -885,7 +933,7 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, west)
                                             && !holdsLoadingTicket(level, east),
@@ -903,11 +951,12 @@ public final class SimpleHomesGameTests {
                 level, owner.player(), middleOf(far), "the test spot", 1, () -> arrived[0] = true);
         helper.assertTrue(holdsLoadingTicket(level, far), "The load must take a ticket");
         owner.close();
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, far));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     !holdsLoadingTicket(level, far),
                                     "The ticket must be given back when the player has left");
@@ -1310,11 +1359,12 @@ public final class SimpleHomesGameTests {
                                 .getOrThrow(),
                         SimpleHomesConfig.maximumHomes());
         Vec3 expected = Vec3.upFromBottomCenterOf(far, 0.5D);
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(chunkX, chunkZ) == null,
                                     "The home's chunk must unload before /home");
@@ -1327,7 +1377,7 @@ public final class SimpleHomesGameTests {
                                                 + " while its chunk loads"))
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     player.position().equals(expected),
                                     "It must land on the slab in its block, the floor rule"
@@ -1558,11 +1608,12 @@ public final class SimpleHomesGameTests {
                                 0.0F),
                         SimpleHomesConfig.maximumHomes());
         Vec3 before = player.position();
-        long started = System.nanoTime();
+        LoadProgress loading =
+                new LoadProgress(() -> chunkProgress(level, new ChunkPos(chunkX, chunkZ)));
         helper.startSequence()
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     level.getChunkSource().getChunkNow(chunkX, chunkZ) == null,
                                     "The home's chunk must unload before /home");
@@ -1577,7 +1628,7 @@ public final class SimpleHomesGameTests {
                         })
                 .thenWaitUntil(
                         () -> {
-                            assertStillLoading(helper, started);
+                            loading.assertStillLoading(helper);
                             helper.assertTrue(
                                     owner.received(
                                             "[SimpleHomes] Could not teleport to home 'lava'"
