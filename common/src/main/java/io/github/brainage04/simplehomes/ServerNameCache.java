@@ -14,9 +14,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
+import net.minecraft.world.level.storage.LevelResource;
 
 /**
  * The players the server's name cache knows, read from {@code usercache.json}.
@@ -38,11 +40,46 @@ final class ServerNameCache {
         return known;
     }
 
+    /**
+     * The {@code usercache.json} the server writes, or empty when neither place holds one. The file
+     * sits in the universe directory, which a dedicated server takes from {@code --universe}
+     * ({@code Main.java:126-127}, default {@code "."}), and in the game directory on an integrated
+     * one ({@code Minecraft.java:405}, {@code IntegratedServer.java:190-192}).
+     *
+     * <p>{@link MinecraftServer#getServerDirectory()} is {@code Path.of("")} on a dedicated server
+     * ({@code MinecraftServer.java:920-922}), so it names the universe directory only while that is
+     * the default; the world directory's parent is the universe directory either way
+     * ({@code LevelStorageSource.createDefault} resolves the world under it,
+     * {@code LevelStorageSource.java:129-131,377-379}). On an integrated server it is the game
+     * directory, which holds the file, while the world directory's parent is {@code saves}.
+     */
+    static Optional<Path> cacheFile(MinecraftServer server) {
+        return cacheFile(
+                server.getServerDirectory(),
+                Optional.ofNullable(server.getWorldPath(LevelResource.ROOT)));
+    }
+
+    static Optional<Path> cacheFile(Path serverDirectory, Optional<Path> worldDirectory) {
+        Path inServerDirectory = serverDirectory.resolve("usercache.json");
+        if (Files.isRegularFile(inServerDirectory)) {
+            return Optional.of(inServerDirectory);
+        }
+        // getWorldPath(ROOT) is the world directory with a "/." suffix, whose parent is itself.
+        return worldDirectory
+                .map(Path::normalize)
+                .map(Path::getParent)
+                .map(parent -> parent.resolve("usercache.json"))
+                .filter(Files::isRegularFile);
+    }
+
     private static List<NameAndId> unexpired(MinecraftServer server) {
-        Path file = server.getServerDirectory().resolve("usercache.json");
+        Optional<Path> file = cacheFile(server);
+        if (file.isEmpty()) {
+            return List.of();
+        }
         JsonElement root;
         try {
-            root = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));
+            root = JsonParser.parseString(Files.readString(file.get(), StandardCharsets.UTF_8));
         } catch (IOException | RuntimeException exception) {
             return List.of();
         }
