@@ -1,5 +1,6 @@
 package io.github.brainage04.simplehomes;
 
+import com.mojang.authlib.GameProfileRepository;
 import com.mojang.authlib.ProfileLookupCallback;
 import com.mojang.authlib.services.ProfileNotFoundException;
 import java.lang.ref.WeakReference;
@@ -29,18 +30,18 @@ import net.minecraft.util.StringUtil;
  */
 public final class NameLookup {
     /**
-     * Lookups this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes
+     * Requests this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes
      * per IP (minecraft.wiki/w/Mojang_API), leaving the other half to the server's own lookups.
      */
-    private static final int SERVER_LOOKUPS = 100;
-
-    private static final long SERVER_WINDOW = Duration.ofMinutes(2).toNanos();
+    private static final int SERVER_REQUESTS = 100;
 
     /**
-     * How long an answer is still worth applying. A lookup can wait behind others on the one lookup
-     * thread, and an answer that arrives after the player has moved on is dropped.
+     * Requests one lookup can cost: {@code findProfilesByNames} posts again after a failed request,
+     * up to three attempts ({@code MinecraftServicesProfileRepository.findProfilesByNames}).
      */
-    private static final long MAX_AGE = Duration.ofSeconds(30).toNanos();
+    private static final int REQUESTS_PER_LOOKUP = 3;
+
+    private static final long SERVER_WINDOW = Duration.ofMinutes(2).toNanos();
 
     private static final Map<MinecraftServer, NameLookup> INSTANCES = new WeakHashMap<>();
 
@@ -73,7 +74,7 @@ public final class NameLookup {
     private final Executor worker;
     private final Executor serverThread;
     private final BooleanSupplier onServerThread;
-    private final long[] recent = new long[SERVER_LOOKUPS];
+    private final long[] recent = new long[SERVER_REQUESTS];
     private int next;
 
     public NameLookup(
@@ -103,7 +104,9 @@ public final class NameLookup {
         return new NameLookup(
                 name -> {
                     MinecraftServer current = reference.get();
-                    return current == null ? new Answer(Status.FAILED, null) : find(current, name);
+                    return current == null
+                            ? new Answer(Status.FAILED, null)
+                            : find(current.services().profileRepository(), name);
                 },
                 EXECUTOR,
                 runnable -> {
@@ -122,35 +125,34 @@ public final class NameLookup {
     }
 
     /**
-     * Asks the server's profile repository, which reports an unknown name and a failed request
-     * differently: {@code findProfileByName} answers both with an empty result ({@code
+     * Asks the profile repository, which reports an unknown name and a failed request differently:
+     * {@code findProfileByName} answers both with an empty result ({@code
      * MinecraftServicesProfileRepository.findProfileByName} catches {@code
      * MinecraftClientException}, which a timeout and an HTTP error both become), while {@code
      * findProfilesByNames} calls back with {@code ProfileNotFoundException} for a name Mojang does
-     * not know and with the client exception for a request that failed.
+     * not know and with an {@code AuthenticationException} after three attempts for a request that
+     * failed.
      */
-    private static Answer find(MinecraftServer server, String name) {
+    static Answer find(GameProfileRepository repository, String name) {
         Answer[] answer = new Answer[1];
-        server.services()
-                .profileRepository()
-                .findProfilesByNames(
-                        new String[] {name},
-                        new ProfileLookupCallback() {
-                            @Override
-                            public void onProfileLookupSucceeded(String found, UUID id) {
-                                answer[0] = new Answer(Status.FOUND, new NameAndId(id, found));
-                            }
+        repository.findProfilesByNames(
+                new String[] {name},
+                new ProfileLookupCallback() {
+                    @Override
+                    public void onProfileLookupSucceeded(String found, UUID id) {
+                        answer[0] = new Answer(Status.FOUND, new NameAndId(id, found));
+                    }
 
-                            @Override
-                            public void onProfileLookupFailed(String failed, Exception exception) {
-                                answer[0] =
-                                        new Answer(
-                                                exception instanceof ProfileNotFoundException
-                                                        ? Status.NOT_FOUND
-                                                        : Status.FAILED,
-                                                null);
-                            }
-                        });
+                    @Override
+                    public void onProfileLookupFailed(String failed, Exception exception) {
+                        answer[0] =
+                                new Answer(
+                                        exception instanceof ProfileNotFoundException
+                                                ? Status.NOT_FOUND
+                                                : Status.FAILED,
+                                        null);
+                    }
+                });
         return answer[0] == null ? new Answer(Status.FAILED, null) : answer[0];
     }
 
@@ -168,7 +170,6 @@ public final class NameLookup {
             callback.accept(new Answer(Status.TOO_MANY, null));
             return;
         }
-        long started = System.nanoTime();
         worker.execute(
                 () -> {
                     Answer answer;
@@ -182,11 +183,11 @@ public final class NameLookup {
                     Answer delivered = answer;
                     serverThread.execute(
                             () -> {
-                                // During shutdown the server runs a task inline on the calling
-                                // thread (BlockableEventLoop.java:98-104), where the name cache and
-                                // the saved data must not be written.
+                                // If the server stops between executeIfPossible's check and
+                                // scheduleExecutables (MinecraftServer.java:1455-1462), the task
+                                // runs inline on this thread, where the name cache and the saved
+                                // data must not be written.
                                 if (!onServerThread.getAsBoolean()) return;
-                                if (System.nanoTime() - started > MAX_AGE) return;
                                 callback.accept(delivered);
                             });
                 });
@@ -205,13 +206,22 @@ public final class NameLookup {
         }
     }
 
-    /** Takes one place in the server's window, or answers false when the window is full. */
+    /**
+     * Takes the places one lookup can use in the server's window, or answers false when they are
+     * not all free. A failed request is retried, so a lookup is charged for every attempt it may
+     * make rather than for the one it usually makes.
+     */
     private synchronized boolean reserve() {
         long now = System.nanoTime();
-        long oldest = recent[next];
-        if (oldest != 0 && now - oldest < SERVER_WINDOW) return false;
-        recent[next] = now;
-        next = (next + 1) % recent.length;
+        for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {
+            int index = (next + slot) % recent.length;
+            long oldest = recent[index];
+            if (oldest != 0 && now - oldest < SERVER_WINDOW) return false;
+        }
+        for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {
+            recent[next] = now;
+            next = (next + 1) % recent.length;
+        }
         return true;
     }
 }
