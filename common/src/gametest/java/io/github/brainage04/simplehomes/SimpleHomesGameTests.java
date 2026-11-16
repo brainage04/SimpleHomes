@@ -2349,7 +2349,7 @@ public final class SimpleHomesGameTests {
      * sharing does, and several uses in one second would otherwise hit the rate limit.
      */
     private static int share(GameTestHelper helper, ServerPlayer player, String command) {
-        ShareRateLimit.of(helper.getLevel().getServer()).clear();
+        ShareRateLimit.clearAll(helper.getLevel().getServer());
         return execute(helper, player, command);
     }
 

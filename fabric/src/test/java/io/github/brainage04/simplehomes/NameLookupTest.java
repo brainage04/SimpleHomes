@@ -390,6 +390,22 @@ class NameLookupTest {
         assertEquals(2_000_000_000_000L, limit.refuse(player), "the first use leaves the hour");
     }
 
+    /**
+     * The ambiguous list and the share itself are charged against different allowances, so listing
+     * cannot spend the click, and listing in a loop is still bounded.
+     */
+    @Test
+    void theListOfAnAmbiguousRevokeHasItsOwnAllowance() {
+        long[] now = {0};
+        ShareRateLimit share = new ShareRateLimit(() -> now[0]);
+        ShareRateLimit listing = new ShareRateLimit(() -> now[0]);
+        UUID player = UUID.randomUUID();
+        assertEquals(0, listing.refuse(player), "the list is allowed");
+        assertEquals(0, share.refuse(player), "the list must not have spent the share");
+        assertEquals(1_000_000_000L, listing.refuse(player), "a second list is refused");
+        assertEquals(1_000_000_000L, share.refuse(player), "the share has its own second");
+    }
+
     @Test
     void theWaitIsDescribedInWholeSeconds() {
         assertEquals("1 second", ShareRateLimit.describe(1));

@@ -21,12 +21,24 @@ public final class ShareRateLimit {
     private static final long HOUR = 60 * MINUTE;
 
     private static final Map<MinecraftServer, ShareRateLimit> INSTANCES = new WeakHashMap<>();
+    private static final Map<MinecraftServer, ShareRateLimit> LISTINGS = new WeakHashMap<>();
 
     private final LongSupplier clock;
     private final Map<UUID, Deque<Long>> used = new HashMap<>();
 
     public ShareRateLimit(LongSupplier clock) {
         this.clock = clock;
+    }
+
+    /**
+     * The allowance the ambiguous revoke's list uses, kept apart from {@link #of}: the list must
+     * not charge the player the click its own button needs, and it must still be bounded.
+     */
+    public static ShareRateLimit listing(MinecraftServer server) {
+        synchronized (LISTINGS) {
+            return LISTINGS.computeIfAbsent(
+                    server, ignored -> new ShareRateLimit(System::nanoTime));
+        }
     }
 
     public static ShareRateLimit of(MinecraftServer server) {
@@ -73,5 +85,14 @@ public final class ShareRateLimit {
     /** Forgets every use, for a GameTest whose steps all run within one second. */
     public void clear() {
         used.clear();
+    }
+
+    /**
+     * Clears every allowance for {@code server}: the share allowance, and the one the ambiguous
+     * list uses.
+     */
+    public static void clearAll(MinecraftServer server) {
+        of(server).clear();
+        listing(server).clear();
     }
 }

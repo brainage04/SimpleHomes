@@ -346,6 +346,12 @@ public final class HomeCommandRegistration {
             if (!charged(server, owner)) return 0;
             return report(owner, data.revoke(ownerId, name, List.of(matches.getFirst())), false);
         }
+        long wait = ShareRateLimit.listing(server).refuse(owner.getUUID());
+        if (wait > 0) {
+            SimpleHomes.FEEDBACK.error(
+                    owner, "You can ask for the list again in %s.", ShareRateLimit.describe(wait));
+            return 0;
+        }
         SimpleHomes.FEEDBACK.neutral(
                 owner,
                 "%d guests of '%s' have been called '%s'. Choose the one to revoke:",
