@@ -213,8 +213,7 @@ public final class NameLookup {
                                 // is still worth sending late.
                                 if (delivered.status() == Status.FOUND
                                         && System.nanoTime() - started > maxAge) {
-                                    callback.accept(
-                                            new Answer(Status.STALE, delivered.profile()));
+                                    callback.accept(new Answer(Status.STALE, delivered.profile()));
                                     return;
                                 }
                                 callback.accept(delivered);

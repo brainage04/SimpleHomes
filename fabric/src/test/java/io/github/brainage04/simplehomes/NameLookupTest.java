@@ -95,7 +95,8 @@ class NameLookupTest {
         for (Runnable task : queue) {
             task.run();
         }
-        assertEquals(33, answers.stream().filter(a -> a.status() == NameLookup.Status.FOUND).count());
+        assertEquals(
+                33, answers.stream().filter(a -> a.status() == NameLookup.Status.FOUND).count());
         assertEquals(
                 7, answers.stream().filter(a -> a.status() == NameLookup.Status.TOO_MANY).count());
     }
@@ -199,12 +200,7 @@ class NameLookupTest {
         NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
         AtomicReference<Runnable> queued = new AtomicReference<>();
         NameLookup lookup =
-                new NameLookup(
-                        name -> found(profile),
-                        queued::set,
-                        Runnable::run,
-                        () -> true,
-                        0);
+                new NameLookup(name -> found(profile), queued::set, Runnable::run, () -> true, 0);
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("Steve", answer::set);
         queued.get().run();
@@ -217,12 +213,7 @@ class NameLookupTest {
     void aLateFailureIsStillReported() {
         AtomicReference<Runnable> queued = new AtomicReference<>();
         NameLookup lookup =
-                new NameLookup(
-                        name -> notFound(),
-                        queued::set,
-                        Runnable::run,
-                        () -> true,
-                        0);
+                new NameLookup(name -> notFound(), queued::set, Runnable::run, () -> true, 0);
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("HomesNeverSeen", answer::set);
         queued.get().run();
