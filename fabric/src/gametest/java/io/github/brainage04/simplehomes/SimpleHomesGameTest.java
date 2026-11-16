@@ -70,6 +70,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void ownersGrantAccessToGuestsWhoAreOffline(GameTestHelper helper) {
+        SimpleHomesGameTests.ownersGrantAccessToGuestsWhoAreOffline(helper);
+    }
+
+    @GameTest
     public void homesSavedWithOnlyABlockLandOnItsFloor(GameTestHelper helper) {
         SimpleHomesGameTests.homesSavedWithOnlyABlockLandOnItsFloor(helper);
     }
