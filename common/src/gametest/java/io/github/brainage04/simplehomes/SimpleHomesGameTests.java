@@ -1164,10 +1164,10 @@ public final class SimpleHomesGameTests {
             NameLookup.install(
                     server,
                     new NameLookup(
-                        name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
-                        Runnable::run,
-                        server::execute,
-                        server::isSameThread));
+                            name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
+                            Runnable::run,
+                            server::execute,
+                            server::isSameThread));
             helper.assertTrue(
                     share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
                     "A name Mojang does not know must be refused");

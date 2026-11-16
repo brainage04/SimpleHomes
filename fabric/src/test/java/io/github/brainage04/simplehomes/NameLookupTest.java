@@ -68,7 +68,10 @@ class NameLookupTest {
         AtomicReference<Runnable> queued = new AtomicReference<>();
         NameLookup lookup =
                 new NameLookup(
-                        name -> found(profile), queued::set, runnable -> runnable.run(), () -> true);
+                        name -> found(profile),
+                        queued::set,
+                        runnable -> runnable.run(),
+                        () -> true);
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("Steve", answer::set);
         assertEquals(null, answer.get(), "nothing may reach the player before the lookup runs");
@@ -100,8 +103,7 @@ class NameLookupTest {
         NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
         AtomicReference<Runnable> queued = new AtomicReference<>();
         NameLookup lookup =
-                new NameLookup(
-                        name -> found(profile), queued::set, Runnable::run, () -> false);
+                new NameLookup(name -> found(profile), queued::set, Runnable::run, () -> false);
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("Steve", answer::set);
         queued.get().run();

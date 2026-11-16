@@ -29,16 +29,16 @@ import net.minecraft.util.StringUtil;
  */
 public final class NameLookup {
     /**
-     * Lookups this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes per
-     * IP (minecraft.wiki/w/Mojang_API), leaving the other half to the server's own lookups.
+     * Lookups this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes
+     * per IP (minecraft.wiki/w/Mojang_API), leaving the other half to the server's own lookups.
      */
     private static final int SERVER_LOOKUPS = 100;
 
     private static final long SERVER_WINDOW = Duration.ofMinutes(2).toNanos();
 
     /**
-     * How long an answer is still worth applying. A lookup can wait behind others on the one
-     * lookup thread, and an answer that arrives after the player has moved on is dropped.
+     * How long an answer is still worth applying. A lookup can wait behind others on the one lookup
+     * thread, and an answer that arrives after the player has moved on is dropped.
      */
     private static final long MAX_AGE = Duration.ofSeconds(30).toNanos();
 
@@ -53,7 +53,9 @@ public final class NameLookup {
                         return thread;
                     });
 
-    /** Where a name is looked up. The server's profile repository in production, a stub in tests. */
+    /**
+     * Where a name is looked up. The server's profile repository in production, a stub in tests.
+     */
     public interface Repository {
         Answer find(String name);
     }
