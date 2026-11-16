@@ -48,10 +48,10 @@ final class ServerNameCache {
      *
      * <p>{@link MinecraftServer#getServerDirectory()} is {@code Path.of("")} on a dedicated server
      * ({@code MinecraftServer.java:920-922}), so it names the universe directory only while that is
-     * the default; the world directory's parent is the universe directory either way
-     * ({@code LevelStorageSource.createDefault} resolves the world under it,
-     * {@code LevelStorageSource.java:129-131,377-379}). On an integrated server it is the game
-     * directory, which holds the file, while the world directory's parent is {@code saves}.
+     * the default; the world directory's parent is the universe directory either way ({@code
+     * LevelStorageSource.createDefault} resolves the world under it, {@code
+     * LevelStorageSource.java:129-131,377-379}). On an integrated server it is the game directory,
+     * which holds the file, while the world directory's parent is {@code saves}.
      */
     static Optional<Path> cacheFile(MinecraftServer server) {
         return cacheFile(

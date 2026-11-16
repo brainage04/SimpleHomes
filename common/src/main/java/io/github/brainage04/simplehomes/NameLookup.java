@@ -14,18 +14,18 @@ import net.minecraft.server.players.NameAndId;
 /**
  * Asks Mojang for the account behind a name the server has not cached, off the server thread.
  *
- * <p>The server's own lookup cannot be used for this: {@code nameToIdCache().get(name)} asks
- * Mojang on the calling thread for a name it has not cached ({@code
- * CachedUserNameToIdResolver.java:118}), and the HTTP client waits up to 5 s to connect and 5 s to
- * read ({@code MinecraftClient.CONNECT_TIMEOUT_MS}, {@code READ_TIMEOUT_MS} in authlib 10.0.77), so
- * on the server thread one unknown name freezes every player. The repository is the server's own
- * ({@code Services.profileRepository()}), so a proxy and the services host the server was given
- * apply, and the answer is handed back on the server thread, where the name cache may be written.
+ * <p>The server's own lookup cannot be used for this: {@code nameToIdCache().get(name)} asks Mojang
+ * on the calling thread for a name it has not cached ({@code CachedUserNameToIdResolver.java:118}),
+ * and the HTTP client waits up to 5 s to connect and 5 s to read ({@code
+ * MinecraftClient.CONNECT_TIMEOUT_MS}, {@code READ_TIMEOUT_MS} in authlib 10.0.77), so on the
+ * server thread one unknown name freezes every player. The repository is the server's own ({@code
+ * Services.profileRepository()}), so a proxy and the services host the server was given apply, and
+ * the answer is handed back on the server thread, where the name cache may be written.
  */
 public final class NameLookup {
     /**
-     * Lookups this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes per
-     * IP (minecraft.wiki/w/Mojang_API), leaving the other half to the server's own lookups.
+     * Lookups this server may make in {@link #SERVER_WINDOW}: half of Mojang's 200 per 2 minutes
+     * per IP (minecraft.wiki/w/Mojang_API), leaving the other half to the server's own lookups.
      */
     private static final int SERVER_LOOKUPS = 100;
 
@@ -43,7 +43,9 @@ public final class NameLookup {
                 });
     }
 
-    /** Where a name is looked up. The server's profile repository in production, a stub in tests. */
+    /**
+     * Where a name is looked up. The server's profile repository in production, a stub in tests.
+     */
     public interface Repository {
         Optional<NameAndId> find(String name);
     }

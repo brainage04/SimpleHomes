@@ -88,11 +88,15 @@ class NameLookupTest {
         data.sawName(guest, "Alex", 1_000);
         data.sawName(guest, "Steve", 2_000);
         assertEquals(
-                List.of(new HomeData.SeenName("Steve", 2_000), new HomeData.SeenName("Alex", 1_000)),
+                List.of(
+                        new HomeData.SeenName("Steve", 2_000),
+                        new HomeData.SeenName("Alex", 1_000)),
                 data.names(guest));
         data.sawName(guest, "Alex", 3_000);
         assertEquals(
-                List.of(new HomeData.SeenName("Alex", 3_000), new HomeData.SeenName("Steve", 2_000)),
+                List.of(
+                        new HomeData.SeenName("Alex", 3_000),
+                        new HomeData.SeenName("Steve", 2_000)),
                 data.names(guest));
     }
 

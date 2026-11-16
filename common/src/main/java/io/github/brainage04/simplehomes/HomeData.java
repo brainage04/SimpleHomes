@@ -179,7 +179,10 @@ public final class HomeData extends SavedData {
     /** The guests of {@code owner}'s home {@code name} whose history holds {@code typed}. */
     public List<UUID> guestsNamed(UUID owner, String name, String typed) {
         return guests(owner, name).stream()
-                .filter(guest -> names(guest).stream().anyMatch(seen -> seen.name().equalsIgnoreCase(typed)))
+                .filter(
+                        guest ->
+                                names(guest).stream()
+                                        .anyMatch(seen -> seen.name().equalsIgnoreCase(typed)))
                 .toList();
     }
 

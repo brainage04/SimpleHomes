@@ -234,10 +234,7 @@ public final class HomeCommandRegistration {
      */
     private static int grantTyped(
             MinecraftServer server, ServerPlayer owner, HomeData data, String name, String typed) {
-        List<NameAndId> matches =
-                ServerNameCache.known(server).stream()
-                        .filter(player -> player.name().equalsIgnoreCase(typed))
-                        .toList();
+        List<NameAndId> matches = named(server, typed);
         if (!matches.isEmpty()) return apply(owner, data, name, true, matches);
         UUID id = parseUuid(typed);
         if (id != null) {
@@ -264,7 +261,11 @@ public final class HomeCommandRegistration {
     }
 
     private static int report(
-            MinecraftServer server, ServerPlayer owner, String name, String typed, NameLookup.Answer answer) {
+            MinecraftServer server,
+            ServerPlayer owner,
+            String name,
+            String typed,
+            NameLookup.Answer answer) {
         switch (answer.status()) {
             case FOUND -> {
                 NameAndId profile = answer.profile();
@@ -315,12 +316,12 @@ public final class HomeCommandRegistration {
             }
         }
         if (matches.isEmpty()) {
-            SimpleHomes.FEEDBACK.error(
-                    owner, "No guest of '%s' is named '%s'.", name, typed);
+            SimpleHomes.FEEDBACK.error(owner, "No guest of '%s' is named '%s'.", name, typed);
             return 0;
         }
         if (matches.size() == 1) {
-            return apply(owner, data, name, false, List.of(new NameAndId(matches.getFirst(), typed)));
+            return apply(
+                    owner, data, name, false, List.of(new NameAndId(matches.getFirst(), typed)));
         }
         SimpleHomes.FEEDBACK.neutral(
                 owner,
@@ -338,8 +339,7 @@ public final class HomeCommandRegistration {
     private static Component describe(HomeData data, UUID guest, String home) {
         List<HomeData.SeenName> seen = data.names(guest);
         String current = seen.isEmpty() ? guest.toString() : seen.getFirst().name();
-        MutableComponent line =
-                Component.literal(" " + current).withStyle(ChatFormatting.WHITE);
+        MutableComponent line = Component.literal(" " + current).withStyle(ChatFormatting.WHITE);
         List<String> previous =
                 seen.stream()
                         .map(HomeData.SeenName::name)
@@ -448,6 +448,23 @@ public final class HomeCommandRegistration {
         // (CachedUserNameToIdResolver.java:135-143).
         String typed = typedArgument(context, argument);
         return candidates.stream().filter(player -> player.name().equalsIgnoreCase(typed)).toList();
+    }
+
+    /**
+     * The players a typed name belongs to: the online ones when any is online, otherwise the cached
+     * ones. A name can belong to several accounts over time, and the player standing here now is
+     * the one meant.
+     */
+    private static List<NameAndId> named(MinecraftServer server, String typed) {
+        List<NameAndId> online =
+                server.getPlayerList().getPlayers().stream()
+                        .map(ServerPlayer::nameAndId)
+                        .filter(player -> player.name().equalsIgnoreCase(typed))
+                        .toList();
+        if (!online.isEmpty()) return online;
+        return ServerNameCache.known(server).stream()
+                .filter(player -> player.name().equalsIgnoreCase(typed))
+                .toList();
     }
 
     private static Collection<NameAndId> cachedNames(MinecraftServer server, Collection<UUID> ids) {

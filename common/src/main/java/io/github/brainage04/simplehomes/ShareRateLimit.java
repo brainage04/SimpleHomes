@@ -37,8 +37,8 @@ public final class ShareRateLimit {
     }
 
     /**
-     * The time the player must wait before this use, or zero when the use is allowed and counted.
-     * A refused use is not counted, so a player who keeps trying is not pushed further out.
+     * The time the player must wait before this use, or zero when the use is allowed and counted. A
+     * refused use is not counted, so a player who keeps trying is not pushed further out.
      */
     public long refuse(UUID player) {
         long now = clock.getAsLong();

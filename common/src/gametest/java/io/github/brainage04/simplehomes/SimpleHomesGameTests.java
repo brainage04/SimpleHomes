@@ -360,8 +360,7 @@ public final class SimpleHomesGameTests {
             GameTestHelper helper, GameTestPlayer player, String text, int bodyColor) {
         List<Component> messages = player.messages();
         helper.assertTrue(
-                !messages.isEmpty()
-                        && messages.getLast().getString().equals(text),
+                !messages.isEmpty() && messages.getLast().getString().equals(text),
                 "Expected the last message to be \"" + text + "\", got " + player.messageTexts());
         List<Integer> colors = new ArrayList<>();
         messages.getLast()
@@ -1199,10 +1198,11 @@ public final class SimpleHomesGameTests {
         }
         helper.succeed();
     }
+
     /**
-     * The lookup answers on a background thread, and the command finishes on the server thread
-     * once it has. Nothing may wait for the answer on the server thread: the tick counter has to
-     * keep moving while it is pending.
+     * The lookup answers on a background thread, and the command finishes on the server thread once
+     * it has. Nothing may wait for the answer on the server thread: the tick counter has to keep
+     * moving while it is pending.
      */
     public static void anUncachedNameIsGrantedOnceTheLookupAnswers(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
@@ -1211,7 +1211,9 @@ public final class SimpleHomesGameTests {
         NameLookup.install(
                 server,
                 new NameLookup(
-                        name -> Optional.of(new NameAndId(profile)), pending::set, server::execute));
+                        name -> Optional.of(new NameAndId(profile)),
+                        pending::set,
+                        server::execute));
         HomeData data = HomeData.get(server);
         // Closed inside the final step, which runs after this method has returned.
         GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
@@ -1247,10 +1249,7 @@ public final class SimpleHomesGameTests {
                                                 + data.guests(player.getUUID(), "base"));
                                 helper.assertTrue(
                                         data.names(profile.id()).stream()
-                                                .anyMatch(
-                                                        seen ->
-                                                                seen.name()
-                                                                        .equals("HomesGhost")),
+                                                .anyMatch(seen -> seen.name().equals("HomesGhost")),
                                         "The answer must be recorded in the name history");
                                 helper.assertTrue(
                                         owner.messageTexts()
@@ -1270,8 +1269,7 @@ public final class SimpleHomesGameTests {
     public static void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
         NameLookup.install(
-                server,
-                new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+                server, new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1353,7 +1351,7 @@ public final class SimpleHomesGameTests {
             String message = owner.messageTexts().getFirst();
             helper.assertTrue(
                     message.startsWith("[SimpleHomes] You can use /sharehome again in ")
-                            && message.endsWith(" second.")
+                                    && message.endsWith(" second.")
                             || message.endsWith(" seconds."),
                     "The refusal must say how long to wait, got " + message);
         } finally {
@@ -1369,8 +1367,7 @@ public final class SimpleHomesGameTests {
     public static void anAmbiguousRevokeListsEachGuestAndRevokesById(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
         NameLookup.install(
-                server,
-                new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+                server, new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
         HomeData data = HomeData.get(server);
         UUID renamed = UUID.randomUUID();
         UUID holder = UUID.randomUUID();
@@ -1439,7 +1436,6 @@ public final class SimpleHomesGameTests {
         }
         helper.succeed();
     }
-
 
     private static void writeCache(MinecraftServer server, UUID id, String name) {
         Path file = server.getServerDirectory().resolve("usercache.json");
