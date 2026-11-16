@@ -76,6 +76,30 @@ class NameLookupTest {
         assertEquals(NameLookup.Status.TOO_MANY, answer.get().status());
     }
 
+    /**
+     * A lookup waiting in the queue has not spent the server's share yet, so a backlog that built
+     * up during an outage cannot drain into one window of requests.
+     */
+    @Test
+    void aQueuedLookupSpendsNothingUntilItRuns() {
+        NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
+        List<Runnable> queue = new java.util.ArrayList<>();
+        List<NameLookup.Answer> answers = new java.util.ArrayList<>();
+        NameLookup lookup =
+                new NameLookup(name -> found(profile), queue::add, Runnable::run, () -> true);
+        for (int use = 0; use < 40; use++) {
+            lookup.lookup("Steve", answers::add);
+        }
+        assertEquals(40, queue.size(), "every lookup waits its turn");
+        assertEquals(0, answers.size(), "a queued lookup has not spent anything yet");
+        for (Runnable task : queue) {
+            task.run();
+        }
+        assertEquals(33, answers.stream().filter(a -> a.status() == NameLookup.Status.FOUND).count());
+        assertEquals(
+                7, answers.stream().filter(a -> a.status() == NameLookup.Status.TOO_MANY).count());
+    }
+
     @Test
     void theAnswerArrivesOnlyWhenTheWorkerAndTheServerThreadRun() {
         NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
@@ -93,7 +117,6 @@ class NameLookupTest {
         assertEquals(NameLookup.Status.FOUND, answer.get().status());
     }
 
-    /** A word that cannot be a player name is refused without spending a lookup. */
     /**
      * The repository reports an unknown name and a failed request differently, and the two must not
      * be confused: a timeout must not tell the player that Mojang has no such account.
@@ -136,6 +159,7 @@ class NameLookupTest {
                 "a repository that never calls back must not read as an unknown name");
     }
 
+    /** A word that cannot be a player name is refused without spending a lookup. */
     @Test
     void aNameThatCannotBelongToAnAccountNeverReachesTheRepository() {
         int[] calls = {0};
@@ -164,6 +188,45 @@ class NameLookupTest {
         lookup.lookup("Steve", answer::set);
         queued.get().run();
         assertEquals(null, answer.get(), "nothing may be applied off the server thread");
+    }
+
+    /**
+     * A found name that arrives too late to act on is reported as stale, so a grant cannot land
+     * minutes after the command that asked for it.
+     */
+    @Test
+    void aFoundNameThatArrivesTooLateIsNotActedOn() {
+        NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+        NameLookup lookup =
+                new NameLookup(
+                        name -> found(profile),
+                        queued::set,
+                        Runnable::run,
+                        () -> true,
+                        0);
+        AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
+        lookup.lookup("Steve", answer::set);
+        queued.get().run();
+        assertEquals(NameLookup.Status.STALE, answer.get().status());
+        assertEquals(profile, answer.get().profile(), "the player is told which account was found");
+    }
+
+    /** A late answer that only sends a message is still delivered. */
+    @Test
+    void aLateFailureIsStillReported() {
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+        NameLookup lookup =
+                new NameLookup(
+                        name -> notFound(),
+                        queued::set,
+                        Runnable::run,
+                        () -> true,
+                        0);
+        AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
+        lookup.lookup("HomesNeverSeen", answer::set);
+        queued.get().run();
+        assertEquals(NameLookup.Status.NOT_FOUND, answer.get().status());
     }
 
     @Test

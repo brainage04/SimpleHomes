@@ -43,6 +43,12 @@ public final class NameLookup {
 
     private static final long SERVER_WINDOW = Duration.ofMinutes(2).toNanos();
 
+    /**
+     * How long an answer is still acted on. A lookup can wait behind failing ones on the one lookup
+     * thread, and a grant that lands minutes after the command is not what the player asked for.
+     */
+    private static final long MAX_AGE = Duration.ofSeconds(30).toNanos();
+
     private static final Map<MinecraftServer, NameLookup> INSTANCES = new WeakHashMap<>();
 
     /** One lookup thread for the whole JVM: a slow answer delays only the lookups behind it. */
@@ -65,7 +71,9 @@ public final class NameLookup {
         FOUND,
         NOT_FOUND,
         FAILED,
-        TOO_MANY
+        TOO_MANY,
+        /** Found, but too late to act on: the player is told the name and asked to try again. */
+        STALE
     }
 
     public record Answer(Status status, NameAndId profile) {}
@@ -75,6 +83,7 @@ public final class NameLookup {
     private final Executor serverThread;
     private final BooleanSupplier onServerThread;
     private final long[] recent = new long[SERVER_REQUESTS];
+    private final long maxAge;
     private int next;
 
     public NameLookup(
@@ -82,10 +91,20 @@ public final class NameLookup {
             Executor worker,
             Executor serverThread,
             BooleanSupplier onServerThread) {
+        this(repository, worker, serverThread, onServerThread, MAX_AGE);
+    }
+
+    NameLookup(
+            Repository repository,
+            Executor worker,
+            Executor serverThread,
+            BooleanSupplier onServerThread,
+            long maxAge) {
         this.repository = repository;
         this.worker = worker;
         this.serverThread = serverThread;
         this.onServerThread = onServerThread;
+        this.maxAge = maxAge;
     }
 
     public static NameLookup of(MinecraftServer server) {
@@ -158,36 +177,46 @@ public final class NameLookup {
 
     /**
      * Looks {@code name} up on the lookup thread and hands the answer to {@code callback} on the
-     * server thread. A name that cannot belong to any account, and a lookup over the server's share
-     * of Mojang's limit, are answered at once and never reach the network.
+     * server thread. A name that cannot belong to any account is answered at once and never reaches
+     * the network. The server's share of Mojang's limit is taken on the lookup thread, just before
+     * the request, so a queue that built up during an outage cannot spend it all at once.
      */
     public void lookup(String name, Consumer<Answer> callback) {
         if (!StringUtil.isValidPlayerName(name)) {
             callback.accept(new Answer(Status.NOT_FOUND, null));
             return;
         }
-        if (!reserve()) {
-            callback.accept(new Answer(Status.TOO_MANY, null));
-            return;
-        }
         worker.execute(
                 () -> {
+                    long started = System.nanoTime();
                     Answer answer;
-                    try {
-                        answer = repository.find(name);
-                    } catch (Exception | Error exception) {
-                        SimpleHomes.LOGGER.warn(
-                                "Could not look up the player name {}", name, exception);
-                        answer = new Answer(Status.FAILED, null);
+                    if (!reserve()) {
+                        answer = new Answer(Status.TOO_MANY, null);
+                    } else {
+                        try {
+                            answer = repository.find(name);
+                        } catch (Exception | Error exception) {
+                            SimpleHomes.LOGGER.warn(
+                                    "Could not look up the player name {}", name, exception);
+                            answer = new Answer(Status.FAILED, null);
+                        }
                     }
                     Answer delivered = answer;
                     serverThread.execute(
                             () -> {
                                 // If the server stops between executeIfPossible's check and
-                                // scheduleExecutables (MinecraftServer.java:1455-1462), the task
-                                // runs inline on this thread, where the name cache and the saved
-                                // data must not be written.
+                                // scheduleExecutables (MinecraftServer.java:1455, 1460), the task
+                                // runs inline on this thread (BlockableEventLoop.java:100-103),
+                                // where the name cache and the saved data must not be written.
                                 if (!onServerThread.getAsBoolean()) return;
+                                // Only a FOUND answer acts; the others only send a message, which
+                                // is still worth sending late.
+                                if (delivered.status() == Status.FOUND
+                                        && System.nanoTime() - started > maxAge) {
+                                    callback.accept(
+                                            new Answer(Status.STALE, delivered.profile()));
+                                    return;
+                                }
                                 callback.accept(delivered);
                             });
                 });
@@ -206,11 +235,7 @@ public final class NameLookup {
         }
     }
 
-    /**
-     * Takes the places one lookup can use in the server's window, or answers false when they are
-     * not all free. A failed request is retried, so a lookup is charged for every attempt it may
-     * make rather than for the one it usually makes.
-     */
+    /** Takes the places one lookup can use in the server's window, or answers false. */
     private synchronized boolean reserve() {
         long now = System.nanoTime();
         for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {

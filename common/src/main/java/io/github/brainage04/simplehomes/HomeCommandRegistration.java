@@ -282,6 +282,15 @@ public final class HomeCommandRegistration {
                         owner, "Could not look up '%s' right now. Try again later.", typed);
                 return 0;
             }
+            case STALE -> {
+                // Caching the name makes the retry answer at once, without another lookup.
+                server.services().nameToIdCache().add(answer.profile());
+                SimpleHomes.FEEDBACK.error(
+                        owner,
+                        "Found '%s', but the lookup took too long to act on. Run the command again.",
+                        typed);
+                return 0;
+            }
             default -> {
                 SimpleHomes.FEEDBACK.error(
                         owner,
