@@ -193,6 +193,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void aStaleAnswerIsNotGrantedAndTheRetryUsesTheCache(GameTestHelper helper) {
+        SimpleHomesGameTests.aStaleAnswerIsNotGrantedAndTheRetryUsesTheCache(helper);
+    }
+
+    @GameTest
     public void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
         SimpleHomesGameTests.aNameMojangDoesNotKnowIsRefused(helper);
     }

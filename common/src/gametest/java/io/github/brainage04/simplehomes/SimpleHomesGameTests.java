@@ -1272,6 +1272,61 @@ public final class SimpleHomesGameTests {
                 });
     }
 
+    /**
+     * A found name that arrives too late to act on is not granted: the name is cached and the owner
+     * is asked to run the command again, which then answers from the cache without a second lookup.
+     */
+    public static void aStaleAnswerIsNotGrantedAndTheRetryUsesTheCache(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "HomesLate");
+        int[] lookups = {0};
+        NameLookup.install(
+                server,
+                new NameLookup(
+                        name -> {
+                            lookups[0]++;
+                            return new NameLookup.Answer(
+                                    NameLookup.Status.STALE, new NameAndId(profile));
+                        },
+                        Runnable::run,
+                        server::execute,
+                        server::isSameThread));
+        HomeData data = HomeData.get(server);
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesLate") == 0,
+                    "A stale answer must not grant");
+            assertLastMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Found 'HomesLate', but the lookup took too long to act on."
+                            + " Run the command again.",
+                    0xFF5555);
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").isEmpty(),
+                    "A stale answer must grant nothing, got "
+                            + data.guests(player.getUUID(), "base"));
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesLate") == 1,
+                    "The retry must grant from the cache the stale answer wrote");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").equals(List.of(profile.id())),
+                    "The retry must grant the found account, got "
+                            + data.guests(player.getUUID(), "base"));
+            helper.assertTrue(
+                    lookups[0] == 1,
+                    "The retry must not look the name up again, but the stub ran " + lookups[0]);
+        } finally {
+            NameLookup.reset(server);
+        }
+        helper.succeed();
+    }
+
     /** A name Mojang does not know is refused; no offline id may be invented for it. */
     public static void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();

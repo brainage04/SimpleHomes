@@ -162,6 +162,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 SimpleHomesGameTests::anUncachedNameIsGrantedOnceTheLookupAnswers);
         register(
                 event,
+                "a_stale_answer_is_not_granted_and_the_retry_uses_the_cache",
+                SimpleHomesGameTests::aStaleAnswerIsNotGrantedAndTheRetryUsesTheCache);
+        register(
+                event,
                 "a_name_mojang_does_not_know_is_refused",
                 SimpleHomesGameTests::aNameMojangDoesNotKnowIsRefused);
         register(

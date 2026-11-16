@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.util.StringUtil;
@@ -83,7 +84,7 @@ public final class NameLookup {
     private final Executor serverThread;
     private final BooleanSupplier onServerThread;
     private final long[] recent = new long[SERVER_REQUESTS];
-    private final long maxAge;
+    private final LongSupplier clock;
     private int next;
 
     public NameLookup(
@@ -91,7 +92,7 @@ public final class NameLookup {
             Executor worker,
             Executor serverThread,
             BooleanSupplier onServerThread) {
-        this(repository, worker, serverThread, onServerThread, MAX_AGE);
+        this(repository, worker, serverThread, onServerThread, System::nanoTime);
     }
 
     NameLookup(
@@ -99,12 +100,12 @@ public final class NameLookup {
             Executor worker,
             Executor serverThread,
             BooleanSupplier onServerThread,
-            long maxAge) {
+            LongSupplier clock) {
         this.repository = repository;
         this.worker = worker;
         this.serverThread = serverThread;
         this.onServerThread = onServerThread;
-        this.maxAge = maxAge;
+        this.clock = clock;
     }
 
     public static NameLookup of(MinecraftServer server) {
@@ -179,16 +180,17 @@ public final class NameLookup {
      * Looks {@code name} up on the lookup thread and hands the answer to {@code callback} on the
      * server thread. A name that cannot belong to any account is answered at once and never reaches
      * the network. The server's share of Mojang's limit is taken on the lookup thread, just before
-     * the request, so a queue that built up during an outage cannot spend it all at once.
+     * the request, so the share counts requests actually sent in the window, not lookups still
+     * waiting in the queue.
      */
     public void lookup(String name, Consumer<Answer> callback) {
         if (!StringUtil.isValidPlayerName(name)) {
             callback.accept(new Answer(Status.NOT_FOUND, null));
             return;
         }
+        long started = clock.getAsLong();
         worker.execute(
                 () -> {
-                    long started = System.nanoTime();
                     Answer answer;
                     if (!reserve()) {
                         answer = new Answer(Status.TOO_MANY, null);
@@ -212,7 +214,7 @@ public final class NameLookup {
                                 // Only a FOUND answer acts; the others only send a message, which
                                 // is still worth sending late.
                                 if (delivered.status() == Status.FOUND
-                                        && System.nanoTime() - started > maxAge) {
+                                        && clock.getAsLong() - started > MAX_AGE) {
                                     callback.accept(new Answer(Status.STALE, delivered.profile()));
                                     return;
                                 }
@@ -236,7 +238,7 @@ public final class NameLookup {
 
     /** Takes the places one lookup can use in the server's window, or answers false. */
     private synchronized boolean reserve() {
-        long now = System.nanoTime();
+        long now = clock.getAsLong();
         for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {
             int index = (next + slot) % recent.length;
             long oldest = recent[index];
