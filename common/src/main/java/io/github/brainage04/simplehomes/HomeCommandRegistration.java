@@ -470,7 +470,8 @@ public final class HomeCommandRegistration {
      */
     private static MutableComponent accountLine(HomeData data, UUID id, String currentName) {
         List<HomeData.SeenName> seen = data.names(id);
-        MutableComponent line = Component.literal(" " + currentName).withStyle(ChatFormatting.WHITE);
+        MutableComponent line =
+                Component.literal(" " + currentName).withStyle(ChatFormatting.WHITE);
         List<String> previous =
                 seen.stream()
                         .map(HomeData.SeenName::name)
@@ -515,10 +516,7 @@ public final class HomeCommandRegistration {
      * allowance, so the button it prints stays affordable in the same second.
      */
     private static int listCandidates(
-            MinecraftServer server,
-            ServerPlayer owner,
-            Component header,
-            List<Component> lines) {
+            MinecraftServer server, ServerPlayer owner, Component header, List<Component> lines) {
         long wait = ShareRateLimit.listing(server).refuse(owner.getUUID());
         if (wait > 0) {
             SimpleHomes.FEEDBACK.error(

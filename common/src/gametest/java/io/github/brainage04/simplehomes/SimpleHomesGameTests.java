@@ -1657,7 +1657,8 @@ public final class SimpleHomesGameTests {
                                     .anyMatch(
                                             line ->
                                                     line.contains("HomesBoth")
-                                                            && line.contains("previous name HomesFirst")),
+                                                            && line.contains(
+                                                                    "previous name HomesFirst")),
                     "Each match must list its other names, got " + lines);
             helper.assertTrue(
                     clicks.size() == 2
