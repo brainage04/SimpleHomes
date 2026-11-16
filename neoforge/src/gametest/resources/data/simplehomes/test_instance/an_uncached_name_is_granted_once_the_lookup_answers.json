@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 200,
+  "type": "minecraft:function",
+  "function": "simplehomes:an_uncached_name_is_granted_once_the_lookup_answers"
+}

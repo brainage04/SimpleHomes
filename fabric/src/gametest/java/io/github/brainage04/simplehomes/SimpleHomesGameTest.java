@@ -186,4 +186,29 @@ public final class SimpleHomesGameTest {
     public void aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(GameTestHelper helper) {
         SimpleHomesGameTests.aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(helper);
     }
+
+    @GameTest
+    public void anUncachedNameIsGrantedOnceTheLookupAnswers(GameTestHelper helper) {
+        SimpleHomesGameTests.anUncachedNameIsGrantedOnceTheLookupAnswers(helper);
+    }
+
+    @GameTest
+    public void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
+        SimpleHomesGameTests.aNameMojangDoesNotKnowIsRefused(helper);
+    }
+
+    @GameTest
+    public void aFailedLookupChangesNothing(GameTestHelper helper) {
+        SimpleHomesGameTests.aFailedLookupChangesNothing(helper);
+    }
+
+    @GameTest
+    public void shareHomeIsRateLimitedPerPlayer(GameTestHelper helper) {
+        SimpleHomesGameTests.shareHomeIsRateLimitedPerPlayer(helper);
+    }
+
+    @GameTest
+    public void anAmbiguousRevokeListsEachGuestAndRevokesById(GameTestHelper helper) {
+        SimpleHomesGameTests.anAmbiguousRevokeListsEachGuestAndRevokesById(helper);
+    }
 }

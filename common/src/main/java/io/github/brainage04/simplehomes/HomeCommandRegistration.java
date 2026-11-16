@@ -11,14 +11,23 @@ import com.mojang.brigadier.context.ParsedCommandNode;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.github.brainage04.brainagelib.help.HelpPage;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.GameProfileArgument;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
@@ -29,6 +38,9 @@ public final class HomeCommandRegistration {
 
     /** The word /sharehome uses for taking access away, so it cannot also be a home name. */
     private static final String RESERVED_NAME = "revoke";
+
+    private static final DateTimeFormatter LAST_SEEN =
+            DateTimeFormatter.ofPattern("d MMM", Locale.ROOT).withZone(ZoneId.systemDefault());
 
     private HomeCommandRegistration() {}
 
@@ -159,7 +171,7 @@ public final class HomeCommandRegistration {
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
         Collection<NameAndId> owners =
-                players(
+                typedMatches(
                         context,
                         "player",
                         cachedNames(
@@ -192,32 +204,192 @@ public final class HomeCommandRegistration {
         if (owner == null) return 0;
         String name = normalizedName(rawName, owner);
         if (name == null) return 0;
-        HomeData data = HomeData.get(context.getSource().getServer());
-        Collection<NameAndId> named =
-                players(
-                        context,
-                        "players",
-                        grant
-                                ? ServerNameCache.known(context.getSource().getServer())
-                                : cachedNames(
-                                        context.getSource().getServer(),
-                                        data.guests(owner.getUUID(), name)));
-        if (grant && named.isEmpty()) {
-            SimpleHomes.FEEDBACK.error(
-                    owner,
-                    "No player named '%s' has joined this server.",
-                    typedArgument(context, "players"));
+        MinecraftServer server = context.getSource().getServer();
+        HomeData data = HomeData.get(server);
+        if (data.getHome(owner.getUUID(), name).isEmpty()) {
+            SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
             return 0;
         }
+        long wait = ShareRateLimit.of(server).refuse(owner.getUUID());
+        if (wait > 0) {
+            SimpleHomes.FEEDBACK.error(
+                    owner, "You can use /sharehome again in %s.", ShareRateLimit.describe(wait));
+            return 0;
+        }
+        GameProfileArgument.Result result =
+                context.getArgument("players", GameProfileArgument.Result.class);
+        if (result instanceof GameProfileArgument.SelectorResult) {
+            return apply(owner, data, name, grant, result.getNames(context.getSource()));
+        }
+        String typed = typedArgument(context, "players");
+        return grant
+                ? grantTyped(server, owner, data, name, typed)
+                : revokeTyped(server, owner, data, name, typed);
+    }
+
+    /**
+     * Grants to the player a typed name belongs to. A name the server has cached is answered at
+     * once; any other name is looked up off the server thread and the grant finishes when the
+     * answer arrives.
+     */
+    private static int grantTyped(
+            MinecraftServer server, ServerPlayer owner, HomeData data, String name, String typed) {
+        List<NameAndId> matches =
+                ServerNameCache.known(server).stream()
+                        .filter(player -> player.name().equalsIgnoreCase(typed))
+                        .toList();
+        if (!matches.isEmpty()) return apply(owner, data, name, true, matches);
+        UUID id = parseUuid(typed);
+        if (id != null) {
+            List<NameAndId> cached = List.copyOf(cachedNames(server, List.of(id)));
+            if (!cached.isEmpty()) return apply(owner, data, name, true, cached);
+            SimpleHomes.FEEDBACK.error(
+                    owner, "No player with the id '%s' has joined this server.", typed);
+            return 0;
+        }
+        SimpleHomes.FEEDBACK.neutral(owner, "Looking up %s...", typed);
+        UUID ownerId = owner.getUUID();
+        // The answer arrives on the server thread later, so the command's result is 1 (accepted)
+        // unless the lookup answered before it returned, as a test's stub does.
+        int[] outcome = {1};
+        NameLookup.of(server)
+                .lookup(
+                        typed,
+                        answer -> {
+                            ServerPlayer current = server.getPlayerList().getPlayer(ownerId);
+                            if (current == null) return;
+                            outcome[0] = report(server, current, name, typed, answer);
+                        });
+        return outcome[0];
+    }
+
+    private static int report(
+            MinecraftServer server, ServerPlayer owner, String name, String typed, NameLookup.Answer answer) {
+        switch (answer.status()) {
+            case FOUND -> {
+                NameAndId profile = answer.profile();
+                // The cache is written on the server thread only
+                // (CachedUserNameToIdResolver.java:86-95 saves the file).
+                server.services().nameToIdCache().add(profile);
+                return apply(owner, HomeData.get(server), name, true, List.of(profile));
+            }
+            case NOT_FOUND -> {
+                SimpleHomes.FEEDBACK.error(owner, "Mojang has no player named '%s'.", typed);
+                return 0;
+            }
+            case FAILED -> {
+                SimpleHomes.FEEDBACK.error(
+                        owner, "Could not look up '%s' right now. Try again later.", typed);
+                return 0;
+            }
+            default -> {
+                SimpleHomes.FEEDBACK.error(
+                        owner,
+                        "Too many name lookups on this server right now. Try again in a minute.");
+                return 0;
+            }
+        }
+    }
+
+    /**
+     * Revokes from the guest a typed name belongs to. A name that matches more than one guest
+     * revokes nothing and lists each match with a button that revokes by id, because a renamed
+     * player and a new holder of the name are different accounts.
+     */
+    private static int revokeTyped(
+            MinecraftServer server, ServerPlayer owner, HomeData data, String name, String typed) {
+        UUID ownerId = owner.getUUID();
+        UUID id = parseUuid(typed);
+        if (id != null) {
+            if (!data.guests(ownerId, name).contains(id)) {
+                SimpleHomes.FEEDBACK.error(
+                        owner, "That player does not have access to '%s'.", name);
+                return 0;
+            }
+            return report(owner, data.revoke(ownerId, name, List.of(id)), false);
+        }
+        List<UUID> matches = new ArrayList<>(data.guestsNamed(ownerId, name, typed));
+        for (NameAndId cached : cachedNames(server, data.guests(ownerId, name))) {
+            if (cached.name().equalsIgnoreCase(typed) && !matches.contains(cached.id())) {
+                matches.add(cached.id());
+            }
+        }
+        if (matches.isEmpty()) {
+            SimpleHomes.FEEDBACK.error(
+                    owner, "No guest of '%s' is named '%s'.", name, typed);
+            return 0;
+        }
+        if (matches.size() == 1) {
+            return apply(owner, data, name, false, List.of(new NameAndId(matches.getFirst(), typed)));
+        }
+        SimpleHomes.FEEDBACK.neutral(
+                owner,
+                "%d guests of '%s' have been called '%s'. Choose the one to revoke:",
+                matches.size(),
+                name,
+                typed);
+        for (UUID guest : matches) {
+            owner.sendSystemMessage(describe(data, guest, name));
+        }
+        return 0;
+    }
+
+    /** One line of the ambiguous revoke list: the guest, its other names, and a revoke button. */
+    private static Component describe(HomeData data, UUID guest, String home) {
+        List<HomeData.SeenName> seen = data.names(guest);
+        String current = seen.isEmpty() ? guest.toString() : seen.getFirst().name();
+        MutableComponent line =
+                Component.literal(" " + current).withStyle(ChatFormatting.WHITE);
+        List<String> previous =
+                seen.stream()
+                        .map(HomeData.SeenName::name)
+                        .filter(name -> !name.equalsIgnoreCase(current))
+                        .toList();
+        if (!previous.isEmpty()) {
+            line.append(
+                    Component.literal(" (previous name " + String.join(", ", previous) + ")")
+                            .withStyle(ChatFormatting.GRAY));
+        }
+        if (!seen.isEmpty()) {
+            line.append(
+                    Component.literal(
+                                    " last seen "
+                                            + LAST_SEEN.format(
+                                                    Instant.ofEpochMilli(
+                                                            seen.getFirst().lastSeen())))
+                            .withStyle(ChatFormatting.GRAY));
+        }
+        line.append(
+                Component.literal(" [Revoke]")
+                        .withStyle(
+                                style ->
+                                        style.withColor(ChatFormatting.GREEN)
+                                                .withClickEvent(
+                                                        new ClickEvent.RunCommand(
+                                                                "/sharehome revoke "
+                                                                        + home
+                                                                        + " "
+                                                                        + guest))));
+        return line;
+    }
+
+    private static int apply(
+            ServerPlayer owner,
+            HomeData data,
+            String name,
+            boolean grant,
+            Collection<NameAndId> named) {
+        long now = System.currentTimeMillis();
+        for (NameAndId profile : named) data.sawName(profile.id(), profile.name(), now);
         Collection<UUID> guests = named.stream().map(NameAndId::id).toList();
         int changed =
                 grant
                         ? data.grant(owner.getUUID(), name, guests)
                         : data.revoke(owner.getUUID(), name, guests);
-        if (changed < 0) {
-            SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
-            return 0;
-        }
+        return report(owner, changed, grant);
+    }
+
+    private static int report(ServerPlayer owner, int changed, boolean grant) {
         String verb = grant ? "Granted" : "Revoked";
         if (changed == 0) {
             SimpleHomes.FEEDBACK.neutral(owner, "%s home access for 0 player(s).", verb);
@@ -242,20 +414,24 @@ public final class HomeCommandRegistration {
         ServerPlayer owner = context.getSource().getPlayer();
         if (owner == null) return Suggestions.empty();
         String name = StringArgumentType.getString(context, "name").toLowerCase(Locale.ROOT);
-        UserNameToIdResolver names = context.getSource().getServer().services().nameToIdCache();
-        return SharedSuggestionProvider.suggest(
-                HomeData.get(context.getSource().getServer()).guests(owner.getUUID(), name).stream()
-                        .flatMap(guest -> names.get(guest).stream())
+        HomeData data = HomeData.get(context.getSource().getServer());
+        List<String> names = new ArrayList<>();
+        for (UUID guest : data.guests(owner.getUUID(), name)) {
+            data.names(guest).forEach(seen -> names.add(seen.name()));
+        }
+        names.addAll(
+                cachedNames(context.getSource().getServer(), data.guests(owner.getUUID(), name))
+                        .stream()
                         .map(NameAndId::name)
-                        .toList(),
-                builder);
+                        .toList());
+        return SharedSuggestionProvider.suggest(names.stream().distinct().toList(), builder);
     }
 
     /**
      * The players a {@link GameProfileArgument} names: a selector's online players, or those of
      * {@code candidates} whose cached name is the name typed.
      */
-    private static Collection<NameAndId> players(
+    private static Collection<NameAndId> typedMatches(
             CommandContext<CommandSourceStack> context,
             String argument,
             Collection<NameAndId> candidates)
@@ -277,6 +453,14 @@ public final class HomeCommandRegistration {
     private static Collection<NameAndId> cachedNames(MinecraftServer server, Collection<UUID> ids) {
         UserNameToIdResolver names = server.services().nameToIdCache();
         return ids.stream().flatMap(id -> names.get(id).stream()).toList();
+    }
+
+    private static UUID parseUuid(String typed) {
+        try {
+            return UUID.fromString(typed);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static String typedArgument(

@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 200,
+  "type": "minecraft:function",
+  "function": "simplehomes:an_ambiguous_revoke_lists_each_guest_and_revokes_by_id"
+}

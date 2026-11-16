@@ -156,6 +156,26 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "owners_grant_access_to_guests_who_are_offline",
                 SimpleHomesGameTests::ownersGrantAccessToGuestsWhoAreOffline);
+        register(
+                event,
+                "an_uncached_name_is_granted_once_the_lookup_answers",
+                SimpleHomesGameTests::anUncachedNameIsGrantedOnceTheLookupAnswers);
+        register(
+                event,
+                "a_name_mojang_does_not_know_is_refused",
+                SimpleHomesGameTests::aNameMojangDoesNotKnowIsRefused);
+        register(
+                event,
+                "a_failed_lookup_changes_nothing",
+                SimpleHomesGameTests::aFailedLookupChangesNothing);
+        register(
+                event,
+                "sharehome_is_rate_limited_per_player",
+                SimpleHomesGameTests::shareHomeIsRateLimitedPerPlayer);
+        register(
+                event,
+                "an_ambiguous_revoke_lists_each_guest_and_revokes_by_id",
+                SimpleHomesGameTests::anAmbiguousRevokeListsEachGuestAndRevokesById);
     }
 
     private static void register(

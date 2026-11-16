@@ -18,10 +18,30 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 public final class HomeData extends SavedData {
+    /** A name the server has seen for an account, and when it last saw it (epoch millis). */
+    public record SeenName(String name, long lastSeen) {
+        public static final Codec<SeenName> CODEC =
+                RecordCodecBuilder.create(
+                        instance ->
+                                instance.group(
+                                                Codec.STRING
+                                                        .fieldOf("name")
+                                                        .forGetter(SeenName::name),
+                                                Codec.LONG
+                                                        .fieldOf("lastSeen")
+                                                        .forGetter(SeenName::lastSeen))
+                                        .apply(instance, SeenName::new));
+    }
+
+    /** How many names one account keeps. A player who renames often keeps the recent ones. */
+    private static final int NAMES_PER_GUEST = 10;
+
     private static final Codec<Map<String, HomeLocation>> OWNER_HOMES_CODEC =
             Codec.unboundedMap(Codec.STRING, HomeLocation.CODEC);
     private static final Codec<Map<String, List<UUID>>> OWNER_SHARES_CODEC =
             Codec.unboundedMap(Codec.STRING, UUIDUtil.STRING_CODEC.listOf());
+    private static final Codec<Map<UUID, List<SeenName>>> GUEST_NAMES_CODEC =
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, SeenName.CODEC.listOf());
     private static final Codec<HomeData> CODEC =
             RecordCodecBuilder.create(
                     instance ->
@@ -35,7 +55,10 @@ public final class HomeData extends SavedData {
                                                             UUIDUtil.STRING_CODEC,
                                                             OWNER_SHARES_CODEC)
                                                     .optionalFieldOf("shares", Map.of())
-                                                    .forGetter(HomeData::sharesSnapshot))
+                                                    .forGetter(HomeData::sharesSnapshot),
+                                            GUEST_NAMES_CODEC
+                                                    .optionalFieldOf("guestNames", Map.of())
+                                                    .forGetter(HomeData::namesSnapshot))
                                     .apply(instance, HomeData::new));
 
     public static final SavedDataType<HomeData> TYPE =
@@ -47,11 +70,14 @@ public final class HomeData extends SavedData {
 
     private final Map<UUID, Map<String, HomeLocation>> homes = new HashMap<>();
     private final Map<UUID, Map<String, Set<UUID>>> shares = new HashMap<>();
+    private final Map<UUID, List<SeenName>> guestNames = new HashMap<>();
 
     public HomeData() {}
 
     private HomeData(
-            Map<UUID, Map<String, HomeLocation>> homes, Map<UUID, Map<String, List<UUID>>> shares) {
+            Map<UUID, Map<String, HomeLocation>> homes,
+            Map<UUID, Map<String, List<UUID>>> shares,
+            Map<UUID, List<SeenName>> guestNames) {
         homes.forEach((owner, entries) -> this.homes.put(owner, new HashMap<>(entries)));
         shares.forEach(
                 (owner, entries) -> {
@@ -59,6 +85,7 @@ public final class HomeData extends SavedData {
                     entries.forEach((name, guests) -> ownerShares.put(name, new HashSet<>(guests)));
                     this.shares.put(owner, ownerShares);
                 });
+        guestNames.forEach((guest, seen) -> this.guestNames.put(guest, new ArrayList<>(seen)));
     }
 
     public static HomeData get(MinecraftServer server) {
@@ -132,6 +159,30 @@ public final class HomeData extends SavedData {
         return changed;
     }
 
+    /**
+     * Records that the server has seen {@code name} for {@code guest} now, keeping the newest
+     * {@link #NAMES_PER_GUEST} names. A name seen again moves to the front with the new time.
+     */
+    public void sawName(UUID guest, String name, long now) {
+        List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
+        seen.removeIf(entry -> entry.name().equalsIgnoreCase(name));
+        seen.addFirst(new SeenName(name, now));
+        while (seen.size() > NAMES_PER_GUEST) seen.removeLast();
+        setDirty();
+    }
+
+    /** The names the server has seen for {@code guest}, newest first. */
+    public List<SeenName> names(UUID guest) {
+        return List.copyOf(guestNames.getOrDefault(guest, List.of()));
+    }
+
+    /** The guests of {@code owner}'s home {@code name} whose history holds {@code typed}. */
+    public List<UUID> guestsNamed(UUID owner, String name, String typed) {
+        return guests(owner, name).stream()
+                .filter(guest -> names(guest).stream().anyMatch(seen -> seen.name().equalsIgnoreCase(typed)))
+                .toList();
+    }
+
     private Map<UUID, Map<String, HomeLocation>> homesSnapshot() {
         Map<UUID, Map<String, HomeLocation>> copy = new HashMap<>();
         homes.forEach((owner, entries) -> copy.put(owner, Map.copyOf(entries)));
@@ -147,6 +198,12 @@ public final class HomeData extends SavedData {
                             (name, guests) -> ownerShares.put(name, new ArrayList<>(guests)));
                     copy.put(owner, Map.copyOf(ownerShares));
                 });
+        return Map.copyOf(copy);
+    }
+
+    private Map<UUID, List<SeenName>> namesSnapshot() {
+        Map<UUID, List<SeenName>> copy = new HashMap<>();
+        guestNames.forEach((guest, seen) -> copy.put(guest, List.copyOf(seen)));
         return Map.copyOf(copy);
     }
 

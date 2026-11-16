@@ -18,10 +18,12 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
@@ -31,6 +33,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -197,10 +200,10 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     execute(helper, guest, sharedHome) == 0, "An uninvited guest must be denied");
             helper.assertTrue(
-                    execute(helper, owner, "sharehome base " + guestSelector) == 1,
+                    share(helper, owner, "sharehome base " + guestSelector) == 1,
                     "Sharing must grant access");
             helper.assertTrue(
-                    execute(helper, owner, "sharehome base " + guestSelector) == 0,
+                    share(helper, owner, "sharehome base " + guestSelector) == 0,
                     "Duplicate sharing must not count twice");
             helper.assertTrue(
                     execute(helper, guest, sharedHome) == 1, "A shared home must be usable");
@@ -208,10 +211,10 @@ public final class SimpleHomesGameTests {
                     execute(helper, guest, "homeof @a[tag=" + tag + "] mine") == 0,
                     "Other homes must stay private");
             helper.assertTrue(
-                    execute(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0,
+                    share(helper, guest, "sharehome base @a[tag=" + tag + "]") == 0,
                     "Guests cannot share another owner's home");
             helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke base " + guestSelector) == 1,
+                    share(helper, owner, "sharehome revoke base " + guestSelector) == 1,
                     "Revocation must remove access");
             helper.assertTrue(
                     execute(helper, guest, sharedHome) == 0, "Revoked guests must be denied");
@@ -292,13 +295,13 @@ public final class SimpleHomesGameTests {
             owner.clearMessages();
             String guestSelector = "@a[name=" + guest.player().getScoreboardName() + "]";
             helper.assertTrue(
-                    execute(helper, owner.player(), "sharehome styled " + guestSelector) == 1,
+                    share(helper, owner.player(), "sharehome styled " + guestSelector) == 1,
                     "Sharing must return the number of players granted");
             assertMessage(
                     helper, owner, "[SimpleHomes] Granted home access for 1 player(s).", 0x55FF55);
             owner.clearMessages();
             helper.assertTrue(
-                    execute(helper, owner.player(), "sharehome styled " + guestSelector) == 0,
+                    share(helper, owner.player(), "sharehome styled " + guestSelector) == 0,
                     "Repeated sharing must return 0");
             assertMessage(
                     helper, owner, "[SimpleHomes] Granted home access for 0 player(s).", 0xFFFF55);
@@ -338,6 +341,30 @@ public final class SimpleHomesGameTests {
                 "Expected only \"" + text + "\", got " + player.messageTexts());
         List<Integer> colors = new ArrayList<>();
         messages.getFirst()
+                .visit(
+                        (style, segment) -> {
+                            if (!segment.isEmpty()) colors.add(style.getColor().getValue());
+                            return Optional.empty();
+                        },
+                        Style.EMPTY);
+        helper.assertTrue(
+                colors.equals(List.of(0xAAAAAA, bodyColor)),
+                "Expected a grey prefix and a coloured body for \"" + text + "\", got " + colors);
+    }
+
+    /**
+     * The last message the player was sent. A lookup answers "Looking up ..." first, so a test
+     * whose stub answers at once sees both messages.
+     */
+    private static void assertLastMessage(
+            GameTestHelper helper, GameTestPlayer player, String text, int bodyColor) {
+        List<Component> messages = player.messages();
+        helper.assertTrue(
+                !messages.isEmpty()
+                        && messages.getLast().getString().equals(text),
+                "Expected the last message to be \"" + text + "\", got " + player.messageTexts());
+        List<Integer> colors = new ArrayList<>();
+        messages.getLast()
                 .visit(
                         (style, segment) -> {
                             if (!segment.isEmpty()) colors.add(style.getColor().getValue());
@@ -1038,7 +1065,7 @@ public final class SimpleHomesGameTests {
                         execute(helper, owner.player(), "sethome base") == 1,
                         "/sethome must create the home");
                 helper.assertTrue(
-                        execute(helper, owner.player(), "sharehome base HomesVisitor") == 1,
+                        share(helper, owner.player(), "sharehome base HomesVisitor") == 1,
                         "Sharing with an online player by name must work");
             }
             helper.assertTrue(
@@ -1108,7 +1135,7 @@ public final class SimpleHomesGameTests {
                     "Revoke must suggest the offline guest before anything is typed, got "
                             + suggested);
             helper.assertTrue(
-                    execute(helper, owner.player(), "sharehome revoke base HomesLeaver") == 1,
+                    share(helper, owner.player(), "sharehome revoke base HomesLeaver") == 1,
                     "An owner must be able to revoke a guest who is offline");
             try (GameTestPlayer rejoined = GameTestPlayer.join(helper, leaver)) {
                 rejoined.moveTo(helper, new BlockPos(5, 1, 5));
@@ -1131,21 +1158,26 @@ public final class SimpleHomesGameTests {
             // Written after the join: a join saves the cache from memory and would drop the entry.
             writeCache(server, away, "HomesAway");
             helper.assertTrue(
-                    execute(helper, owner.player(), "sharehome base HomesAway") == 1,
+                    share(helper, owner.player(), "sharehome base HomesAway") == 1,
                     "An owner must be able to share with a player who is offline");
             owner.clearMessages();
+            // A name the server has not cached goes to Mojang; the stub answers that it is unknown.
+            NameLookup.install(
+                    server,
+                    new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
             helper.assertTrue(
-                    execute(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
-                    "A name the server has not cached must be refused");
-            assertMessage(
+                    share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
+                    "A name Mojang does not know must be refused");
+            assertLastMessage(
                     helper,
                     owner,
-                    "[SimpleHomes] No player named 'HomesNeverSeen' has joined this server.",
+                    "[SimpleHomes] Mojang has no player named 'HomesNeverSeen'.",
                     0xFF5555);
+            NameLookup.reset(server);
             try (GameTestPlayer online = GameTestPlayer.join(helper, "HomesOnline")) {
                 online.moveTo(helper, new BlockPos(4, 1, 4));
                 helper.assertTrue(
-                        execute(helper, owner.player(), "sharehome base @a[name=HomesOnline]") == 1,
+                        share(helper, owner.player(), "sharehome base @a[name=HomesOnline]") == 1,
                         "A selector must still grant to the online players");
                 List<UUID> guests = HomeData.get(server).guests(owner.player().getUUID(), "base");
                 helper.assertTrue(
@@ -1167,6 +1199,247 @@ public final class SimpleHomesGameTests {
         }
         helper.succeed();
     }
+    /**
+     * The lookup answers on a background thread, and the command finishes on the server thread
+     * once it has. Nothing may wait for the answer on the server thread: the tick counter has to
+     * keep moving while it is pending.
+     */
+    public static void anUncachedNameIsGrantedOnceTheLookupAnswers(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "HomesGhost");
+        AtomicReference<Runnable> pending = new AtomicReference<>();
+        NameLookup.install(
+                server,
+                new NameLookup(
+                        name -> Optional.of(new NameAndId(profile)), pending::set, server::execute));
+        HomeData data = HomeData.get(server);
+        // Closed inside the final step, which runs after this method has returned.
+        GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
+        ServerPlayer player = owner.player();
+        owner.moveTo(helper, new BlockPos(2, 1, 2));
+        execute(helper, player, "sethome base");
+        owner.clearMessages();
+        helper.assertTrue(
+                share(helper, player, "sharehome base HomesGhost") == 1,
+                "The command must answer at once, before the lookup has an answer");
+        assertMessage(helper, owner, "[SimpleHomes] Looking up HomesGhost...", 0xFFFF55);
+        helper.assertTrue(
+                data.guests(player.getUUID(), "base").isEmpty(),
+                "Nothing may be granted before the answer arrives");
+        long before = helper.getTick();
+        helper.runAfterDelay(
+                5,
+                () -> {
+                    helper.assertTrue(
+                            helper.getTick() - before >= 5,
+                            "The server must keep ticking while the lookup is pending");
+                    helper.assertTrue(
+                            data.guests(player.getUUID(), "base").isEmpty(),
+                            "Nothing may be granted before the answer arrives");
+                    pending.get().run();
+                    helper.runAfterDelay(
+                            2,
+                            () -> {
+                                helper.assertTrue(
+                                        data.guests(player.getUUID(), "base")
+                                                .equals(List.of(profile.id())),
+                                        "The grant must apply once the answer arrives, got "
+                                                + data.guests(player.getUUID(), "base"));
+                                helper.assertTrue(
+                                        data.names(profile.id()).stream()
+                                                .anyMatch(
+                                                        seen ->
+                                                                seen.name()
+                                                                        .equals("HomesGhost")),
+                                        "The answer must be recorded in the name history");
+                                helper.assertTrue(
+                                        owner.messageTexts()
+                                                .contains(
+                                                        "[SimpleHomes] Granted home access for 1"
+                                                                + " player(s)."),
+                                        "The player must be told the grant applied, got "
+                                                + owner.messageTexts());
+                                NameLookup.reset(server);
+                                owner.close();
+                                helper.succeed();
+                            });
+                });
+    }
+
+    /** A name Mojang does not know is refused; no offline id may be invented for it. */
+    public static void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        NameLookup.install(
+                server,
+                new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+        HomeData data = HomeData.get(server);
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesNeverSeen") == 0,
+                    "A name Mojang does not know must be refused");
+            assertLastMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Mojang has no player named 'HomesNeverSeen'.",
+                    0xFF5555);
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").isEmpty(),
+                    "A refused name must grant nothing");
+            helper.assertTrue(
+                    !data.guests(player.getUUID(), "base")
+                            .contains(UUIDUtil.createOfflinePlayerUUID("HomesNeverSeen")),
+                    "An offline id must never stand in for a name Mojang does not know");
+            NameLookup.reset(server);
+        }
+        helper.succeed();
+    }
+
+    /** A lookup that fails (a timeout or a service error) changes nothing and says so. */
+    public static void aFailedLookupChangesNothing(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        NameLookup.install(
+                server,
+                new NameLookup(
+                        name -> {
+                            throw new IllegalStateException("the profile service timed out");
+                        },
+                        Runnable::run,
+                        server::execute));
+        HomeData data = HomeData.get(server);
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesGhost") == 0,
+                    "A failed lookup must not grant");
+            assertLastMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] Could not look up 'HomesGhost' right now. Try again later.",
+                    0xFF5555);
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").isEmpty(),
+                    "A failed lookup must change nothing");
+            NameLookup.reset(server);
+        }
+        helper.succeed();
+    }
+
+    /** Every use counts against the player's allowance, cached name or not. */
+    public static void shareHomeIsRateLimitedPerPlayer(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        ShareRateLimit limit = ShareRateLimit.of(server);
+        limit.clear();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
+                GameTestPlayer guest = GameTestPlayer.join(helper, "HomesGuest")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            helper.assertTrue(
+                    execute(helper, player, "sharehome base " + guest.player().getScoreboardName())
+                            == 1,
+                    "The first use must be allowed");
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, player, "sharehome base " + guest.player().getScoreboardName())
+                            == 0,
+                    "A second use in the same second must be refused");
+            String message = owner.messageTexts().getFirst();
+            helper.assertTrue(
+                    message.startsWith("[SimpleHomes] You can use /sharehome again in ")
+                            && message.endsWith(" second.")
+                            || message.endsWith(" seconds."),
+                    "The refusal must say how long to wait, got " + message);
+        } finally {
+            limit.clear();
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A name two guests have held revokes nothing: a renamed player and a new holder of the name
+     * are different accounts, so the owner picks one from the list, which revokes by id.
+     */
+    public static void anAmbiguousRevokeListsEachGuestAndRevokesById(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        NameLookup.install(
+                server,
+                new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+        HomeData data = HomeData.get(server);
+        UUID renamed = UUID.randomUUID();
+        UUID holder = UUID.randomUUID();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            data.grant(player.getUUID(), "base", List.of(renamed, holder));
+            long now = System.currentTimeMillis();
+            data.sawName(renamed, "Alex", now - 86_400_000L);
+            data.sawName(renamed, "Steve", now);
+            data.sawName(holder, "Steve", now);
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base Steve") == 0,
+                    "An ambiguous revoke must revoke nothing");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").containsAll(List.of(renamed, holder)),
+                    "Neither guest may be revoked by an ambiguous name");
+            List<Component> messages = owner.messages();
+            helper.assertTrue(
+                    messages.getFirst()
+                            .getString()
+                            .equals(
+                                    "[SimpleHomes] 2 guests of 'base' have been called 'Steve'."
+                                            + " Choose the one to revoke:"),
+                    "The list must say why nothing was revoked, got " + owner.messageTexts());
+            List<String> lines = new ArrayList<>();
+            List<String> clicks = new ArrayList<>();
+            for (Component line : messages.subList(1, messages.size())) {
+                lines.add(line.getString());
+                line.visit(
+                        (style, segment) -> {
+                            if (segment.trim().equals("[Revoke]")
+                                    && style.getClickEvent()
+                                            instanceof ClickEvent.RunCommand(String command)) {
+                                clicks.add(command);
+                            }
+                            return Optional.empty();
+                        },
+                        Style.EMPTY);
+            }
+            helper.assertTrue(
+                    lines.size() == 2
+                            && lines.stream()
+                                    .anyMatch(
+                                            line ->
+                                                    line.contains("Steve")
+                                                            && line.contains("previous name Alex")),
+                    "Each match must list its other names, got " + lines);
+            helper.assertTrue(
+                    clicks.size() == 2
+                            && clicks.containsAll(
+                                    List.of(
+                                            "/sharehome revoke base " + renamed,
+                                            "/sharehome revoke base " + holder)),
+                    "Each match must carry a revoke button for its own id, got " + clicks);
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base " + renamed) == 1,
+                    "A clicked revoke must revoke the guest whose id it names");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").equals(List.of(holder)),
+                    "Only the clicked guest may be revoked, got "
+                            + data.guests(player.getUUID(), "base"));
+            NameLookup.reset(server);
+        }
+        helper.succeed();
+    }
+
 
     private static void writeCache(MinecraftServer server, UUID id, String name) {
         Path file = server.getServerDirectory().resolve("usercache.json");
@@ -1300,7 +1573,7 @@ public final class SimpleHomesGameTests {
                     execute(helper, guest, "homeof @a[tag=" + tag + "] revoke") == 1,
                     "The guest must reach it");
             helper.assertTrue(
-                    execute(helper, owner, "sharehome revoke revoke " + guest.getScoreboardName())
+                    share(helper, owner, "sharehome revoke revoke " + guest.getScoreboardName())
                             == 1,
                     "Its access must still be revocable");
             helper.assertTrue(
@@ -1912,6 +2185,15 @@ public final class SimpleHomesGameTests {
         } catch (CommandSyntaxException exception) {
             return true;
         }
+    }
+
+    /**
+     * Runs a /sharehome command with the player's allowance cleared first: these tests check what
+     * sharing does, and several uses in one second would otherwise hit the rate limit.
+     */
+    private static int share(GameTestHelper helper, ServerPlayer player, String command) {
+        ShareRateLimit.of(helper.getLevel().getServer()).clear();
+        return execute(helper, player, command);
     }
 
     private static int execute(GameTestHelper helper, ServerPlayer player, String command) {
