@@ -1550,7 +1550,8 @@ public final class SimpleHomesGameTests {
                     "[SimpleHomes] No guest of 'base' is named 'HomesNeverSeen'.",
                     0xFF5555);
             helper.assertTrue(
-                    data.guests(player.getUUID(), "base").containsAll(List.of(guest.id(), stranger)),
+                    data.guests(player.getUUID(), "base")
+                            .containsAll(List.of(guest.id(), stranger)),
                     "A name Mojang does not know must leave every guest in place");
             owner.clearMessages();
             helper.assertTrue(
@@ -1574,7 +1575,8 @@ public final class SimpleHomesGameTests {
                     data.guests(player.getUUID(), "base").equals(List.of(stranger)),
                     "A name whose account is not a guest must leave the guests in place, got "
                             + data.guests(player.getUUID(), "base"));
-            helper.assertTrue(lookups[0] == 3, "All three revokes must be looked up, got " + lookups[0]);
+            helper.assertTrue(
+                    lookups[0] == 3, "All three revokes must be looked up, got " + lookups[0]);
             NameLookup.reset(server);
         }
         helper.succeed();

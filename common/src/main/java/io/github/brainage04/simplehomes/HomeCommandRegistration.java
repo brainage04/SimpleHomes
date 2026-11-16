@@ -341,9 +341,9 @@ public final class HomeCommandRegistration {
 
     /**
      * Revokes from the guest a name belongs to when nothing the server has seen for the owner's
-     * guests matches. The owner typed a name the server holds no history for, so the account
-     * behind it is looked up at Mojang: a guest of this home whose id that is loses access, and a
-     * name belonging to anyone else revokes nothing.
+     * guests matches. The owner typed a name the server holds no history for, so the account behind
+     * it is looked up at Mojang: a guest of this home whose id that is loses access, and a name
+     * belonging to anyone else revokes nothing.
      */
     private static int revokeFoundByName(
             MinecraftServer server, ServerPlayer owner, String name, String typed) {
