@@ -9,9 +9,6 @@ import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import io.netty.util.ReferenceCountUtil;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +24,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
@@ -155,7 +153,7 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     execute(helper, player, "sethome " + "a".repeat(33)) == 0,
                     "Names beyond 32 characters must be rejected");
-            for (int i = 1; i < SimpleHomesConfig.maximumHomes(); i++) {
+            for (int i = 1; i < maximumHomes(helper); i++) {
                 execute(helper, player, "sethome home_" + i);
             }
             helper.assertTrue(
@@ -314,8 +312,12 @@ public final class SimpleHomesGameTests {
                                 entry ->
                                         entry.modId().equals(SimpleHomes.MOD_ID)
                                                 && entry.helpCommand().equals("/simplehomes help")
-                                                && entry.adminConfigCommand() == null),
-                "SimpleHomes must be registered in /servermods");
+                                                && entry.adminConfigCommand()
+                                                        .equals(
+                                                                "/gamerule simplehomes:maximum_homes,"
+                                                                        + " /gamerule"
+                                                                        + " simplehomes:reset_fall")),
+                "SimpleHomes must be registered in /servermods with both gamerules");
         var output = new CapturedCommandOutput();
         helper.getLevel()
                 .getServer()
@@ -326,6 +328,16 @@ public final class SimpleHomesGameTests {
                         .contains(
                                 "SimpleHomes: Adds named, persistent homes that you can share with other players. /simplehomes help"),
                 "/servermods must list SimpleHomes, got " + output.text());
+        var config = new CapturedCommandOutput();
+        helper.getLevel()
+                .getServer()
+                .getCommands()
+                .performPrefixedCommand(config.source(helper.getLevel().getServer()), "servermods config");
+        helper.assertTrue(
+                config.text()
+                        .contains(
+                                "SimpleHomes: /gamerule simplehomes:maximum_homes, /gamerule simplehomes:reset_fall"),
+                "/servermods config must name both gamerules, got " + config.text());
         helper.succeed();
     }
 
@@ -418,7 +430,7 @@ public final class SimpleHomesGameTests {
                             player.getUUID(),
                             "water",
                             new HomeLocation(level.dimension().identifier(), inWater, 0.0F, 0.0F),
-                            SimpleHomesConfig.maximumHomes());
+                            maximumHomes(helper));
             helper.assertTrue(
                     execute(helper, player, "home water") == 1,
                     "A home in water must teleport, got " + owner.messageTexts());
@@ -538,7 +550,7 @@ public final class SimpleHomesGameTests {
                         player.getUUID(),
                         "far",
                         new HomeLocation(level.dimension().identifier(), expected, 0.0F, 0.0F),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
         helper.assertTrue(
                 execute(helper, player, "home far") == 1,
                 "A home in a chunk nobody loaded must be accepted: its chunk is loaded first, as"
@@ -584,7 +596,7 @@ public final class SimpleHomesGameTests {
                                 Vec3.atBottomCenterOf(buried),
                                 0.0F,
                                 0.0F),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
         Vec3 before = player.position();
         owner.clearMessages();
         helper.assertTrue(
@@ -632,7 +644,7 @@ public final class SimpleHomesGameTests {
                         player.getUUID(),
                         "far",
                         new HomeLocation(level.dimension().identifier(), expected, 0.0F, 0.0F),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
         Vec3 before = player.position();
         owner.clearMessages();
         helper.assertTrue(
@@ -1226,7 +1238,7 @@ public final class SimpleHomesGameTests {
                     owner.getUUID(),
                     "revoke",
                     HomeLocation.from(owner),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             helper.assertTrue(
                     execute(helper, owner, "home revoke") == 1,
                     "A home saved as 'revoke' must still teleport");
@@ -1314,7 +1326,7 @@ public final class SimpleHomesGameTests {
                                                         + far.getZ()
                                                         + "]}"))
                                 .getOrThrow(),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
         Vec3 expected = Vec3.upFromBottomCenterOf(far, 0.5D);
         long started = System.nanoTime();
         helper.startSequence()
@@ -1365,7 +1377,7 @@ public final class SimpleHomesGameTests {
                             Vec3.atBottomCenterOf(lava),
                             0.0F,
                             0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             Vec3 before = player.position();
             owner.clearMessages();
             helper.assertTrue(
@@ -1395,7 +1407,7 @@ public final class SimpleHomesGameTests {
                             Vec3.atBottomCenterOf(overVoid),
                             0.0F,
                             0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             owner.clearMessages();
             helper.assertTrue(
                     execute(helper, player, "home void") == 0,
@@ -1432,13 +1444,13 @@ public final class SimpleHomesGameTests {
                     "edge",
                     new HomeLocation(
                             level.dimension().identifier(), beside.add(0.25, 0.0, 0.0), 0.0F, 0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             data.setHome(
                     player.getUUID(),
                     "near",
                     new HomeLocation(
                             level.dimension().identifier(), beside.add(0.15, 0.0, 0.0), 0.0F, 0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             // Lava hurts a box that overlaps it by more than 1e-7 (Entity.java:1346, 1376,
             // 1426-1428; AABB.java:401-409), well short of 0.0005 blocks.
             data.setHome(
@@ -1449,7 +1461,7 @@ public final class SimpleHomesGameTests {
                             beside.add(0.2005, 0.0, 0.0),
                             0.0F,
                             0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             Vec3 before = player.position();
             owner.clearMessages();
             helper.assertTrue(
@@ -1493,7 +1505,7 @@ public final class SimpleHomesGameTests {
                             Vec3.atBottomCenterOf(crawl),
                             0.0F,
                             0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             // A crawling player's box is 0.6 blocks tall (Avatar.java:28), under the lava.
             player.setPose(Pose.SWIMMING);
             Vec3 crawling = player.position();
@@ -1540,7 +1552,7 @@ public final class SimpleHomesGameTests {
                         player.getUUID(),
                         "lava",
                         new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
                 helper.assertTrue(
                         execute(helper, player, "home lava") == 1,
                         "A home in lava must still take "
@@ -1558,7 +1570,7 @@ public final class SimpleHomesGameTests {
                     survivor.getUUID(),
                     "lava",
                     new HomeLocation(level.dimension().identifier(), inLava, 0.0F, 0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             survivor.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 9600));
             Vec3 outside = survivor.position();
             fireproof.clearMessages();
@@ -1626,7 +1638,7 @@ public final class SimpleHomesGameTests {
                             Vec3.atBottomCenterOf(overVoid),
                             0.0F,
                             0.0F),
-                    SimpleHomesConfig.maximumHomes());
+                    maximumHomes(helper));
             Vec3 before = player.position();
             creative.clearMessages();
             helper.assertTrue(
@@ -1690,7 +1702,7 @@ public final class SimpleHomesGameTests {
                             names[index],
                             new HomeLocation(
                                     level.dimension().identifier(), homes[index], 0.0F, 0.0F),
-                            SimpleHomesConfig.maximumHomes());
+                            maximumHomes(helper));
                 }
             }
             ServerPlayer player = owner.player();
@@ -1792,7 +1804,7 @@ public final class SimpleHomesGameTests {
                                 Vec3.atBottomCenterOf(lava),
                                 0.0F,
                                 0.0F),
-                        SimpleHomesConfig.maximumHomes());
+                        maximumHomes(helper));
         Vec3 before = player.position();
         long started = System.nanoTime();
         helper.startSequence()
@@ -1852,64 +1864,131 @@ public final class SimpleHomesGameTests {
         }
     }
 
+    /** The live {@code simplehomes:maximum_homes} value. */
+    private static int maximumHomes(GameTestHelper helper) {
+        return helper.getLevel().getServer().getGameRules().get(SimpleHomes.MAXIMUM_HOMES);
+    }
+
     /**
-     * Runs {@code body} with {@code resetFallOnArrival} set to {@code on} in the config file, and
-     * puts the file and the loaded value back afterwards so no other test sees it changed.
+     * Runs {@code body} with {@code simplehomes:reset_fall} set to {@code on} through the command a
+     * server owner uses, and puts the rule back afterwards so no other test sees it changed.
      */
-    private static void withResetFallOnArrival(
-            GameTestHelper helper, boolean on, Runnable body) {
-        Path directory = SimpleHomesConfig.directory();
-        helper.assertTrue(directory != null, "the config was never loaded");
-        Path file = directory.resolve("simplehomes.json");
-        String before = null;
+    private static void withResetFall(GameTestHelper helper, boolean on, Runnable body) {
+        MinecraftServer server = helper.getLevel().getServer();
+        boolean before = server.getGameRules().get(SimpleHomes.RESET_FALL);
+        server.getCommands()
+                .performPrefixedCommand(
+                        server.createCommandSourceStack(), "gamerule simplehomes:reset_fall " + on);
         try {
-            before = Files.exists(file) ? Files.readString(file) : null;
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not read " + file, exception);
-        }
-        try {
-            writeConfig(file, on);
-            SimpleHomesConfig.load(directory);
             helper.assertTrue(
-                    SimpleHomesConfig.resetFallOnArrival() == on,
-                    "resetFallOnArrival did not load as " + on);
+                    server.getGameRules().get(SimpleHomes.RESET_FALL) == on,
+                    "/gamerule simplehomes:reset_fall " + on + " did not set the rule");
             body.run();
         } finally {
-            try {
-                if (before == null) {
-                    Files.deleteIfExists(file);
-                } else {
-                    Files.writeString(file, before);
-                }
-            } catch (IOException exception) {
-                throw new IllegalStateException("Could not put " + file + " back", exception);
-            }
-            SimpleHomesConfig.load(directory);
+            server.getCommands()
+                    .performPrefixedCommand(
+                            server.createCommandSourceStack(),
+                            "gamerule simplehomes:reset_fall " + before);
         }
     }
 
-    private static void writeConfig(Path file, boolean resetFallOnArrival) {
+    /**
+     * Runs {@code body} with {@code simplehomes:maximum_homes} set to {@code limit} through the
+     * command a server owner uses, and puts the rule back afterwards.
+     */
+    private static void withMaximumHomes(GameTestHelper helper, int limit, Runnable body) {
+        MinecraftServer server = helper.getLevel().getServer();
+        int before = server.getGameRules().get(SimpleHomes.MAXIMUM_HOMES);
+        server.getCommands()
+                .performPrefixedCommand(
+                        server.createCommandSourceStack(),
+                        "gamerule simplehomes:maximum_homes " + limit);
         try {
-            Files.createDirectories(file.getParent());
-            Files.writeString(
-                    file,
-                    "{\"maximumHomes\": "
-                            + SimpleHomesConfig.maximumHomes()
-                            + ", \"resetFallOnArrival\": "
-                            + resetFallOnArrival
-                            + "}\n");
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not write " + file, exception);
+            helper.assertTrue(
+                    maximumHomes(helper) == limit,
+                    "/gamerule simplehomes:maximum_homes " + limit + " did not set the rule");
+            body.run();
+        } finally {
+            server.getCommands()
+                    .performPrefixedCommand(
+                            server.createCommandSourceStack(),
+                            "gamerule simplehomes:maximum_homes " + before);
         }
+    }
+
+    /** Both rules exist, and have the defaults a new server starts with. */
+    public static void gamerulesDefaultToTenHomesAndAResetFall(GameTestHelper helper) {
+        helper.assertTrue(
+                Integer.valueOf(10).equals(SimpleHomes.MAXIMUM_HOMES.defaultValue()),
+                "simplehomes:maximum_homes defaults to "
+                        + SimpleHomes.MAXIMUM_HOMES.defaultValue());
+        helper.assertTrue(
+                Boolean.TRUE.equals(SimpleHomes.RESET_FALL.defaultValue()),
+                "simplehomes:reset_fall defaults to " + SimpleHomes.RESET_FALL.defaultValue());
+        helper.assertTrue(
+                maximumHomes(helper) == 10,
+                "simplehomes:maximum_homes is " + maximumHomes(helper) + " in a new world");
+        helper.assertTrue(
+                helper.getLevel().getGameRules().get(SimpleHomes.RESET_FALL),
+                "simplehomes:reset_fall is off in a new world");
+        helper.succeed();
+    }
+
+    /**
+     * A server owner lowering {@code simplehomes:maximum_homes} at runtime changes the limit the
+     * very next command sees: the third home is refused, the two the player has keep working, and
+     * updating one of them stays possible at the limit.
+     */
+    public static void loweringMaximumHomesAppliesImmediately(GameTestHelper helper) {
+        try (GameTestPlayer owner = GameTestPlayer.mock(helper)) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            helper.assertTrue(
+                    execute(helper, player, "sethome first") == 1,
+                    "/sethome must create the first home");
+            helper.assertTrue(
+                    execute(helper, player, "sethome second") == 1,
+                    "/sethome must create the second home");
+            withMaximumHomes(
+                    helper,
+                    2,
+                    () -> {
+                        owner.moveTo(helper, new BlockPos(3, 1, 3));
+                        owner.clearMessages();
+                        helper.assertTrue(
+                                execute(helper, player, "sethome third") == 0,
+                                "A third home must be refused at a limit of 2, got "
+                                        + owner.messageTexts());
+                        assertMessage(
+                                helper,
+                                owner,
+                                "[SimpleHomes] You already have the maximum of 2 homes.",
+                                0xFF5555);
+                        helper.assertTrue(
+                                execute(helper, player, "sethome second") == 1,
+                                "Updating a home at the limit must still work");
+                    });
+            withMaximumHomes(
+                    helper,
+                    3,
+                    () ->
+                            helper.assertTrue(
+                                    execute(helper, player, "sethome third") == 1,
+                                    "Raising the limit must let the next home through"));
+            helper.assertTrue(
+                    execute(helper, player, "sethome fourth") == 1,
+                    "The default limit must be back after the test");
+        }
+        helper.succeed();
     }
 
     /**
      * A player who is already falling arrives with the fall reset, as an ender pearl's teleport
      * resets it (ThrownEnderpearl.java:123,135), so the landing below the home deals no damage.
-     * With the option off the fall is kept, as vanilla's /tp keeps it (TeleportCommand.java:241-248
+     * With the rule off the fall is kept, as vanilla's /tp keeps it (TeleportCommand.java:241-248
      * resets only the vertical velocity and the ground flag). The kept fall here is shorter than
      * the safe fall distance, because a longer one is refused by the drop check, which counts it
-     * ({@link #dropCheckCountsTheCarriedFallWhenTheOptionIsOff}).
+     * ({@link #dropCheckCountsTheCarriedFallWhenTheRuleIsOff}).
      */
     public static void fallIsResetOnArrival(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1924,7 +2003,7 @@ public final class SimpleHomesGameTests {
                             player.getUUID(),
                             "ground",
                             new HomeLocation(level.dimension().identifier(), home, 0.0F, 0.0F),
-                            SimpleHomesConfig.maximumHomes());
+                            maximumHomes(helper));
             owner.moveTo(helper, new BlockPos(5, 1, 5));
             player.fallDistance = 8.0F;
             helper.assertTrue(
@@ -1939,7 +2018,7 @@ public final class SimpleHomesGameTests {
                     "The arrival took "
                             + (player.getMaxHealth() - player.getHealth())
                             + " damage from a fall that was reset");
-            withResetFallOnArrival(
+            withResetFall(
                     helper,
                     false,
                     () -> {
@@ -1948,7 +2027,7 @@ public final class SimpleHomesGameTests {
                         player.fallDistance = 2.0F;
                         helper.assertTrue(
                                 execute(helper, player, "home ground") == 1,
-                                "A home on the ground must teleport with the option off, got "
+                                "A home on the ground must teleport with the rule off, got "
                                         + owner.messageTexts());
                         helper.assertTrue(
                                 player.fallDistance == 2.0F,
@@ -1965,11 +2044,11 @@ public final class SimpleHomesGameTests {
     }
 
     /**
-     * With the option off the drop check counts the fall the player already has, so a home on the
-     * ground is refused when that fall alone would hurt. With the option on (its default) the same
-     * home works, because the arrival resets the fall.
+     * With {@code simplehomes:reset_fall} off the drop check counts the fall the player already
+     * has, so a home on the ground is refused when that fall alone would hurt. With the rule on
+     * (its default) the same home works, because the arrival resets the fall.
      */
-    public static void dropCheckCountsTheCarriedFallWhenTheOptionIsOff(GameTestHelper helper) {
+    public static void dropCheckCountsTheCarriedFallWhenTheRuleIsOff(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         try (GameTestPlayer owner =
                 GameTestPlayer.join(helper, "HomesCarried").gameMode(GameType.SURVIVAL)) {
@@ -1981,8 +2060,8 @@ public final class SimpleHomesGameTests {
                             player.getUUID(),
                             "ground",
                             new HomeLocation(level.dimension().identifier(), home, 0.0F, 0.0F),
-                            SimpleHomesConfig.maximumHomes());
-            withResetFallOnArrival(
+                            maximumHomes(helper));
+            withResetFall(
                     helper,
                     false,
                     () -> {

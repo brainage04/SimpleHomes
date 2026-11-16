@@ -74,14 +74,29 @@ public final class HomeCommandRegistration {
                                                         .executes(
                                                                 HomeCommandRegistration
                                                                         ::grantNamedHome))));
-        HelpPage.create(SimpleHomes.FEEDBACK, "simplehomes")
+        dispatcher.register(
+                literal("simplehomes")
+                        .executes(context -> showHelp(context.getSource()))
+                        .then(literal("help").executes(context -> showHelp(context.getSource()))));
+    }
+
+    private static int showHelp(CommandSourceStack source) {
+        return HelpPage.create(SimpleHomes.FEEDBACK, "simplehomes")
                 .line("/sethome <name> - create or update a home where you stand")
                 .line("/home <name> - teleport to one of your homes")
                 .line("/sharehome <name> <players> - let players use one of your homes")
                 .line("/sharehome revoke <name> <players> - take that access away again")
                 .line("/homeof <player> <name> - teleport to a home someone shared with you")
-                .line("You can have up to %d homes.", SimpleHomesConfig.maximumHomes())
-                .register(dispatcher);
+                .line("You can have up to %d homes.", maximumHomes(source))
+                .show(source);
+    }
+
+    /**
+     * The live {@code simplehomes:maximum_homes} value, so a change applies to the next command
+     * without a restart.
+     */
+    private static int maximumHomes(CommandSourceStack source) {
+        return source.getServer().getGameRules().get(SimpleHomes.MAXIMUM_HOMES);
     }
 
     private static RequiredArgumentBuilder<CommandSourceStack, String> ownHomeName() {
@@ -112,18 +127,16 @@ public final class HomeCommandRegistration {
                     RESERVED_NAME);
             return 0;
         }
+        int limit = maximumHomes(context.getSource());
         HomeData.SetResult result =
                 HomeData.get(context.getSource().getServer())
                         .setHome(
                                 player.getUUID(),
                                 name,
                                 HomeLocation.from(player),
-                                SimpleHomesConfig.maximumHomes());
+                                limit);
         if (result == HomeData.SetResult.LIMIT_REACHED) {
-            SimpleHomes.FEEDBACK.error(
-                    player,
-                    "You already have the maximum of %d homes.",
-                    SimpleHomesConfig.maximumHomes());
+            SimpleHomes.FEEDBACK.error(player, "You already have the maximum of %d homes.", limit);
             return 0;
         }
         String action = result == HomeData.SetResult.CREATED ? "Created" : "Updated";

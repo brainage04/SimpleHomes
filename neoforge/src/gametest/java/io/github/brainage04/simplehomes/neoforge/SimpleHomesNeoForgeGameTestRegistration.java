@@ -152,11 +152,19 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
+        register(
+                event,
+                "gamerules_default_to_ten_homes_and_a_reset_fall",
+                SimpleHomesGameTests::gamerulesDefaultToTenHomesAndAResetFall);
+        register(
+                event,
+                "lowering_maximum_homes_applies_immediately",
+                SimpleHomesGameTests::loweringMaximumHomesAppliesImmediately);
         register(event, "fall_is_reset_on_arrival", SimpleHomesGameTests::fallIsResetOnArrival);
         register(
                 event,
-                "drop_check_counts_the_carried_fall_when_the_option_is_off",
-                SimpleHomesGameTests::dropCheckCountsTheCarriedFallWhenTheOptionIsOff);
+                "drop_check_counts_the_carried_fall_when_the_rule_is_off",
+                SimpleHomesGameTests::dropCheckCountsTheCarriedFallWhenTheRuleIsOff);
     }
 
     private static void register(

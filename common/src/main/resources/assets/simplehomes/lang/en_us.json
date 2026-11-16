@@ -1,0 +1,6 @@
+{
+	"gamerule.simplehomes.maximum_homes": "Maximum homes per player",
+	"gamerule.simplehomes.maximum_homes.description": "How many homes one player may have, from 1 to 2147483647. Updating a home a player already has stays possible at the limit",
+	"gamerule.simplehomes.reset_fall": "Reset the fall on arrival",
+	"gamerule.simplehomes.reset_fall.description": "Resets a teleporting player's fall distance when they arrive, as an ender pearl does, so only the drop below the home can hurt them. Turn it off to keep the fall they had, as vanilla's /tp does"
+}

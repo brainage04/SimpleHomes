@@ -183,12 +183,22 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest(maxTicks = 40)
+    public void gamerulesDefaultToTenHomesAndAResetFall(GameTestHelper helper) {
+        SimpleHomesGameTests.gamerulesDefaultToTenHomesAndAResetFall(helper);
+    }
+
+    @GameTest(maxTicks = 40)
+    public void loweringMaximumHomesAppliesImmediately(GameTestHelper helper) {
+        SimpleHomesGameTests.loweringMaximumHomesAppliesImmediately(helper);
+    }
+
+    @GameTest(maxTicks = 40)
     public void fallIsResetOnArrival(GameTestHelper helper) {
         SimpleHomesGameTests.fallIsResetOnArrival(helper);
     }
 
     @GameTest(maxTicks = 40)
-    public void dropCheckCountsTheCarriedFallWhenTheOptionIsOff(GameTestHelper helper) {
-        SimpleHomesGameTests.dropCheckCountsTheCarriedFallWhenTheOptionIsOff(helper);
+    public void dropCheckCountsTheCarriedFallWhenTheRuleIsOff(GameTestHelper helper) {
+        SimpleHomesGameTests.dropCheckCountsTheCarriedFallWhenTheRuleIsOff(helper);
     }
 }

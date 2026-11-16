@@ -167,7 +167,7 @@ public final class HomeTeleportService {
                     player, "Could not teleport to %s because it is obstructed.", label);
             return false;
         }
-        if (dropHurts(level, player, destination, carriedFall(player))) {
+        if (dropHurts(level, player, destination, carriedFall(level, player))) {
             SimpleHomes.FEEDBACK.error(
                     player,
                     "Could not teleport to %s because it is in the air above a long drop.",
@@ -188,7 +188,7 @@ public final class HomeTeleportService {
             SimpleHomes.FEEDBACK.error(player, "Could not teleport to %s.", label);
             return false;
         }
-        if (SimpleHomesConfig.resetFallOnArrival()) {
+        if (level.getGameRules().get(SimpleHomes.RESET_FALL)) {
             player.resetFallDistance();
         }
         SimpleHomes.FEEDBACK.success(player, "Teleported to %s.", label);
@@ -197,12 +197,12 @@ public final class HomeTeleportService {
 
     /**
      * The fall distance the player carries into the arrival, which the drop check adds to the drop
-     * below it. Zero while {@code resetFallOnArrival} is on, the default: the teleport then resets
-     * the fall on arrival as an ender pearl does (ThrownEnderpearl.java:123,135), so only the drop
-     * below the arrival counts.
+     * below it. Zero while {@code simplehomes:reset_fall} is on, the default: the teleport then
+     * resets the fall on arrival as an ender pearl does (ThrownEnderpearl.java:123,135), so only
+     * the drop below the arrival counts.
      */
-    private static double carriedFall(ServerPlayer player) {
-        return SimpleHomesConfig.resetFallOnArrival() ? 0.0 : player.fallDistance;
+    private static double carriedFall(ServerLevel level, ServerPlayer player) {
+        return level.getGameRules().get(SimpleHomes.RESET_FALL) ? 0.0 : player.fallDistance;
     }
 
     /**
@@ -386,7 +386,7 @@ public final class HomeTeleportService {
      * game keeps through a teleport (TeleportCommand.java:241-248 resets only the vertical velocity
      * and the ground flag; only the ender pearl and the chorus fruit reset the fall,
      * ThrownEnderpearl.java:123,135 and TeleportRandomlyConsumeEffect.java:83). It is zero when
-     * {@code resetFallOnArrival} is on. A resetting block on the way down resets it too, so it
+     * {@code simplehomes:reset_fall} is on. A resetting block on the way down resets it too, so it
      * counts only for a drop that crosses none.
      */
     private static boolean dropHurts(

@@ -6,9 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,7 +16,6 @@ import net.minecraft.server.Bootstrap;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class SimpleHomesTest {
     @BeforeAll
@@ -55,83 +51,6 @@ class SimpleHomesTest {
         assertEquals(1, data.revoke(owner, "base", List.of(guest)));
         assertFalse(data.allows(owner, "base", guest));
         assertEquals(-1, data.revoke(owner, "missing", List.of(guest)));
-    }
-
-    @Test
-    void loadsTheConfigurableMaximumAndWritesTheDefault(@TempDir Path directory)
-            throws IOException {
-        try {
-            SimpleHomesConfig.load(directory);
-            assertEquals(10, SimpleHomesConfig.maximumHomes());
-            assertTrue(
-                    Files.readString(directory.resolve("simplehomes.json"))
-                            .contains("\"maximumHomes\": 10"));
-            Files.writeString(directory.resolve("simplehomes.json"), "{\"maximumHomes\":3}");
-            SimpleHomesConfig.load(directory);
-            assertEquals(3, SimpleHomesConfig.maximumHomes());
-        } finally {
-            SimpleHomesConfig.load(directory.resolve("reset"));
-        }
-    }
-
-    @Test
-    void configWrittenByThePreviousVersionLoadsAndTheDefaultKeepsItsFormat(@TempDir Path directory)
-            throws IOException {
-        Path config = directory.resolve("simplehomes.json");
-        try {
-            SimpleHomesConfig.load(directory);
-            assertEquals(
-                    "{\n  \"maximumHomes\": 10,\n  \"resetFallOnArrival\": true\n}\n",
-                    Files.readString(config));
-            String previous = "{\n  \"maximumHomes\": 7\n}" + System.lineSeparator();
-            Files.writeString(config, previous);
-            SimpleHomesConfig.load(directory);
-            assertEquals(7, SimpleHomesConfig.maximumHomes());
-            assertTrue(SimpleHomesConfig.resetFallOnArrival());
-            assertEquals(previous, Files.readString(config));
-        } finally {
-            SimpleHomesConfig.load(directory.resolve("reset"));
-        }
-    }
-
-    @Test
-    void invalidConfigurationFallsBackWithoutOverwritingTheFile(@TempDir Path directory)
-            throws IOException {
-        Path config = directory.resolve("simplehomes.json");
-        try {
-            for (String json :
-                    List.of(
-                            "{",
-                            "null",
-                            "[]",
-                            "{}",
-                            "{\"maximumHomes\":0}",
-                            "{\"maximumHomes\":-1}",
-                            "{\"maximumHomes\":\"bad\"}")) {
-                Files.writeString(config, "{\"maximumHomes\":3}");
-                SimpleHomesConfig.load(directory);
-                Files.writeString(config, json);
-                SimpleHomesConfig.load(directory);
-                assertEquals(10, SimpleHomesConfig.maximumHomes(), json);
-                assertEquals(json, Files.readString(config));
-            }
-        } finally {
-            SimpleHomesConfig.load(directory.resolve("reset"));
-        }
-    }
-
-    @Test
-    void fractionalAndOverflowingLimitsUseTheDefault(@TempDir Path directory) throws IOException {
-        try {
-            for (String number : List.of("1.5", "4294967297", "2147483648", "1e100")) {
-                Files.writeString(
-                        directory.resolve("simplehomes.json"), "{\"maximumHomes\":" + number + "}");
-                SimpleHomesConfig.load(directory);
-                assertEquals(10, SimpleHomesConfig.maximumHomes(), number);
-            }
-        } finally {
-            SimpleHomesConfig.load(directory.resolve("reset"));
-        }
     }
 
     @Test

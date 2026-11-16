@@ -1,1 +1,0 @@
-{"environment":"minecraft:default","structure":"minecraftmodconventions:empty","max_ticks":40,"type":"minecraft:function","function":"simplehomes:drop_check_counts_the_carried_fall_when_the_option_is_off"}
