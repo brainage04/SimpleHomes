@@ -1,47 +1,46 @@
 # SimpleHomes
 
-SimpleHomes is a server-side only Fabric and NeoForge mod for Minecraft 26.3 that adds named, persistent homes with explicit per-home sharing.
+SimpleHomes is a server-side only Fabric and NeoForge mod for Minecraft 26.3 that adds homes that can be shared with other players.
 
-Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens. Sharing one home does not expose any other home belonging to the same player.
+Home names are case-insensitive and may contain 1-32 letters, numbers, underscores, or hyphens (`revoke` is reserved because it is a subcommand of `/sharehome`).
 
 ## Features
 
-- Named, persistent homes.
-- Explicit per-home sharing.
-- A configurable per-player home limit.
+- Named homes
+- Per-home sharing
+- Per-player home limits
 
-## Getting started
+## Requirements
 
-- Fabric Loader >=0.19.5 with Fabric API, or NeoForge >=26.3.0.99.
-- BrainageLib >=1.3.0 for the matching loader.
-- Install exactly one matching JAR on the server: the Fabric JAR with Fabric API, or the NeoForge JAR with NeoForge. Vanilla clients can join without installing the mod.
+- Fabric Loader >=0.19.5 w/ Fabric API or NeoForge >=26.3.0.99
+- BrainageLib >=2.0.0
 
 ## Commands
 
-- `/sethome <name>` - creates a home at your current dimension, block position, yaw, and pitch, or updates an existing home with that name.
-- `/home <name>` - teleports you to one of your homes.
-- `/sharehome <name> <players>` - grants the selected online players access to one of your homes.
-- `/sharehome revoke <name> <players>` - revokes that access.
-- `/homeof <player> <name>` - teleports to that player's home when they have shared it with you.
-- `/simplehomes` or `/simplehomes help` - lists these commands and your home limit.
+- `/sethome <name>` - creates a home (or updates an existing home with that name) at your exact position and rotation for that dimension
+- `/home <name>` - teleports you to the specified home (unless it's no longer safe - see below)
+- `/sharehome <name> <players>` - grants access to the specified home to the specified players (online or offline)
+- `/sharehome revoke <name> <players>` - revokes access to the specified home from the specified players (online or offline)
+- `/homeof <player> <name>` - teleports to that player's home if you have been granted access (works while they're offline, as long as they've joined this server before)
+- `/simplehomes` or `/simplehomes help` - lists these commands and your home limit
 
-Messages use BrainageLib's style: a grey `[SimpleHomes]` prefix with a green body for success and a red body for errors. SimpleHomes is listed in BrainageLib's `/servermods` help and first-join notice.
+## Safety
 
-## Configuration
+`/home` and `/homeof` won't teleport you if the home is:
 
-The first launch creates `config/simplehomes.json`:
+- blocked (no room to stand or even crawl)
+- in lava (checked against your whole body, so lava at head height counts - skipped in creative, spectator, with infinite Fire Resistance, or when the `fire_damage` gamerule is off)
+- over the void (no block below it down to the bottom of the world)
+- high enough up that the fall would hurt you (going by the game's fall damage rule - no ground within 128 blocks counts as a fall that hurts)
 
-```json
-{
-  "maximumHomes": 10
-}
-```
+You stay where you are instead. A home in an unloaded chunk still works - the chunk loads first and you arrive a moment later.
 
-`maximumHomes` must be a whole number from 1 to 2147483647. Updating an existing home remains possible when a player has reached the limit. Restart the server after changing the file.
+If you're already falling when you teleport, the fall resets when you arrive (like an ender pearl) unless the `simplehomes:reset_fall` gamerule is off.
 
-## Compatibility
+## Config
 
-No known incompatibilities.
+- `/gamerule simplehomes:maximum_homes <1-2147483647>` - the most homes a player can have (default 10, updating an existing home still works at the limit)
+- `/gamerule simplehomes:reset_fall <true|false>` - `true` (default) resets a player's fall on arrival like an ender pearl, `false` keeps the fall like vanilla `/tp`
 
 ## Documentation
 
