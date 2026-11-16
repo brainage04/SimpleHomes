@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mojang.serialization.JsonOps;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,7 +24,7 @@ class NameLookupTest {
     @Test
     void aFoundNameReachesTheServerThread() {
         NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
-        NameLookup lookup = lookup(name -> Optional.of(profile));
+        NameLookup lookup = lookup(name -> found(profile));
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("steve", answer::set);
         assertEquals(NameLookup.Status.FOUND, answer.get().status());
@@ -34,7 +33,7 @@ class NameLookupTest {
 
     @Test
     void anUnknownNameIsNotFoundAndNothingIsInvented() {
-        NameLookup lookup = lookup(name -> Optional.empty());
+        NameLookup lookup = lookup(name -> notFound());
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("HomesNeverSeen", answer::set);
         assertEquals(NameLookup.Status.NOT_FOUND, answer.get().status());
@@ -43,11 +42,7 @@ class NameLookupTest {
 
     @Test
     void aFailingRepositoryIsReportedAsFailed() {
-        NameLookup lookup =
-                lookup(
-                        name -> {
-                            throw new IllegalStateException("the service is down");
-                        });
+        NameLookup lookup = lookup(name -> failed());
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("Steve", answer::set);
         assertEquals(NameLookup.Status.FAILED, answer.get().status());
@@ -56,7 +51,7 @@ class NameLookupTest {
     @Test
     void theServerStopsAskingMojangAfterItsShareOfTheLimit() {
         NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
-        NameLookup lookup = lookup(name -> Optional.of(profile));
+        NameLookup lookup = lookup(name -> found(profile));
         for (int use = 0; use < 100; use++) {
             AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
             lookup.lookup("Steve", answer::set);
@@ -73,12 +68,44 @@ class NameLookupTest {
         AtomicReference<Runnable> queued = new AtomicReference<>();
         NameLookup lookup =
                 new NameLookup(
-                        name -> Optional.of(profile), queued::set, runnable -> runnable.run());
+                        name -> found(profile), queued::set, runnable -> runnable.run(), () -> true);
         AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
         lookup.lookup("Steve", answer::set);
         assertEquals(null, answer.get(), "nothing may reach the player before the lookup runs");
         queued.get().run();
         assertEquals(NameLookup.Status.FOUND, answer.get().status());
+    }
+
+    /** A word that cannot be a player name is refused without spending a lookup. */
+    @Test
+    void aNameThatCannotBelongToAnAccountNeverReachesTheRepository() {
+        int[] calls = {0};
+        NameLookup lookup =
+                lookup(
+                        name -> {
+                            calls[0]++;
+                            return notFound();
+                        });
+        for (String name : List.of("a".repeat(17), "bad name", "na\u00efve")) {
+            AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
+            lookup.lookup(name, answer::set);
+            assertEquals(NameLookup.Status.NOT_FOUND, answer.get().status(), name);
+        }
+        assertEquals(0, calls[0], "no invalid name may reach the repository");
+    }
+
+    /** An answer that arrives after the server has stopped is dropped, not applied. */
+    @Test
+    void anAnswerIsDroppedWhenTheServerThreadIsGone() {
+        NameAndId profile = new NameAndId(UUID.randomUUID(), "Steve");
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+        NameLookup lookup =
+                new NameLookup(
+                        name -> found(profile), queued::set, Runnable::run, () -> false);
+        AtomicReference<NameLookup.Answer> answer = new AtomicReference<>();
+        lookup.lookup("Steve", answer::set);
+        queued.get().run();
+        assertEquals(null, answer.get(), "nothing may be applied off the server thread");
     }
 
     @Test
@@ -195,7 +222,19 @@ class NameLookupTest {
 
     private static NameLookup lookup(NameLookup.Repository repository) {
         Executor direct = Runnable::run;
-        return new NameLookup(repository, direct, direct);
+        return new NameLookup(repository, direct, direct, () -> true);
+    }
+
+    private static NameLookup.Answer found(NameAndId profile) {
+        return new NameLookup.Answer(NameLookup.Status.FOUND, profile);
+    }
+
+    private static NameLookup.Answer notFound() {
+        return new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null);
+    }
+
+    private static NameLookup.Answer failed() {
+        return new NameLookup.Answer(NameLookup.Status.FAILED, null);
     }
 
     private static HomeLocation location() {

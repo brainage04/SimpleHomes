@@ -1163,7 +1163,11 @@ public final class SimpleHomesGameTests {
             // A name the server has not cached goes to Mojang; the stub answers that it is unknown.
             NameLookup.install(
                     server,
-                    new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+                    new NameLookup(
+                        name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
+                        Runnable::run,
+                        server::execute,
+                        server::isSameThread));
             helper.assertTrue(
                     share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
                     "A name Mojang does not know must be refused");
@@ -1211,9 +1215,12 @@ public final class SimpleHomesGameTests {
         NameLookup.install(
                 server,
                 new NameLookup(
-                        name -> Optional.of(new NameAndId(profile)),
+                        name ->
+                                new NameLookup.Answer(
+                                        NameLookup.Status.FOUND, new NameAndId(profile)),
                         pending::set,
-                        server::execute));
+                        server::execute,
+                        server::isSameThread));
         HomeData data = HomeData.get(server);
         // Closed inside the final step, which runs after this method has returned.
         GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
@@ -1269,7 +1276,12 @@ public final class SimpleHomesGameTests {
     public static void aNameMojangDoesNotKnowIsRefused(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
         NameLookup.install(
-                server, new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+                server,
+                new NameLookup(
+                        name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
+                        Runnable::run,
+                        server::execute,
+                        server::isSameThread));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1302,11 +1314,10 @@ public final class SimpleHomesGameTests {
         NameLookup.install(
                 server,
                 new NameLookup(
-                        name -> {
-                            throw new IllegalStateException("the profile service timed out");
-                        },
+                        name -> new NameLookup.Answer(NameLookup.Status.FAILED, null),
                         Runnable::run,
-                        server::execute));
+                        server::execute,
+                        server::isSameThread));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1367,7 +1378,12 @@ public final class SimpleHomesGameTests {
     public static void anAmbiguousRevokeListsEachGuestAndRevokesById(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
         NameLookup.install(
-                server, new NameLookup(name -> Optional.empty(), Runnable::run, server::execute));
+                server,
+                new NameLookup(
+                        name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
+                        Runnable::run,
+                        server::execute,
+                        server::isSameThread));
         HomeData data = HomeData.get(server);
         UUID renamed = UUID.randomUUID();
         UUID holder = UUID.randomUUID();

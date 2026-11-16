@@ -269,8 +269,7 @@ public final class HomeCommandRegistration {
         switch (answer.status()) {
             case FOUND -> {
                 NameAndId profile = answer.profile();
-                // The cache is written on the server thread only
-                // (CachedUserNameToIdResolver.java:86-95 saves the file).
+                // add() also rewrites usercache.json (CachedUserNameToIdResolver.java:86-95).
                 server.services().nameToIdCache().add(profile);
                 return apply(owner, HomeData.get(server), name, true, List.of(profile));
             }
@@ -320,8 +319,7 @@ public final class HomeCommandRegistration {
             return 0;
         }
         if (matches.size() == 1) {
-            return apply(
-                    owner, data, name, false, List.of(new NameAndId(matches.getFirst(), typed)));
+            return report(owner, data.revoke(ownerId, name, List.of(matches.getFirst())), false);
         }
         SimpleHomes.FEEDBACK.neutral(
                 owner,
@@ -386,6 +384,10 @@ public final class HomeCommandRegistration {
                 grant
                         ? data.grant(owner.getUUID(), name, guests)
                         : data.revoke(owner.getUUID(), name, guests);
+        if (changed < 0) {
+            SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
+            return 0;
+        }
         return report(owner, changed, grant);
     }
 
