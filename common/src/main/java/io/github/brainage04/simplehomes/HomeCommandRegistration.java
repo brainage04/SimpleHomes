@@ -573,9 +573,6 @@ public final class HomeCommandRegistration {
             boolean grant,
             Collection<NameAndId> named) {
         for (NameAndId profile : named) data.recordName(profile.id(), profile.name());
-        // A grant records a name for an account that may be neither a guest nor online, so the
-        // non-guest cap is enforced here as well as on a join.
-        data.pruneNames(SimpleHomes.guestsAndOnline(owner.level().getServer(), data));
         Collection<UUID> guests = named.stream().map(NameAndId::id).toList();
         int changed =
                 grant
@@ -585,6 +582,10 @@ public final class HomeCommandRegistration {
             SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
             return 0;
         }
+        // A grant records a name for an account that may be neither a guest nor online, so the
+        // non-guest cap is enforced here as well as on a join. It runs after the grant, so the
+        // account just granted is already in the keep set.
+        data.pruneNames(SimpleHomes.guestsAndOnline(owner.level().getServer(), data));
         return report(owner, changed, grant);
     }
 

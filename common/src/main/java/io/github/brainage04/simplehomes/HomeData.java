@@ -39,8 +39,8 @@ public final class HomeData extends SavedData {
 
     /**
      * How many accounts that are not guests keep a join history. The cap matches the 1000 profiles
-     * {@code usercache.json} keeps (CachedUserNameToIdResolver.java:40,172), which is the window a
-     * name can be resolved in anyway.
+     * {@code usercache.json} keeps (CachedUserNameToIdResolver.java:40,172), which is the window
+     * {@code ServerNameCache} can resolve a name in.
      */
     private static final int NON_GUEST_HISTORIES = 1000;
 
@@ -200,7 +200,8 @@ public final class HomeData extends SavedData {
      * Records {@code name} as one the account has held, without claiming the server saw the player
      * under it: an owner typing a name is not a sighting, and "last seen" is the last join. A name
      * already recorded keeps its place and its time. A full history drops its oldest typed name
-     * first, then its oldest join name, because a name nothing holds cannot be matched again.
+     * first, and its oldest join name when it holds no typed name, so a newly typed name is always
+     * recorded.
      */
     public void recordName(UUID guest, String name) {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
