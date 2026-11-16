@@ -130,11 +130,7 @@ public final class HomeCommandRegistration {
         int limit = maximumHomes(context.getSource());
         HomeData.SetResult result =
                 HomeData.get(context.getSource().getServer())
-                        .setHome(
-                                player.getUUID(),
-                                name,
-                                HomeLocation.from(player),
-                                limit);
+                        .setHome(player.getUUID(), name, HomeLocation.from(player), limit);
         if (result == HomeData.SetResult.LIMIT_REACHED) {
             SimpleHomes.FEEDBACK.error(player, "You already have the maximum of %d homes.", limit);
             return 0;

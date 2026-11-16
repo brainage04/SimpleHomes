@@ -332,7 +332,8 @@ public final class SimpleHomesGameTests {
         helper.getLevel()
                 .getServer()
                 .getCommands()
-                .performPrefixedCommand(config.source(helper.getLevel().getServer()), "servermods config");
+                .performPrefixedCommand(
+                        config.source(helper.getLevel().getServer()), "servermods config");
         helper.assertTrue(
                 config.text()
                         .contains(
@@ -1234,11 +1235,7 @@ public final class SimpleHomesGameTests {
             ownerPlayer.moveTo(helper, new BlockPos(2, 1, 2));
             // How a home saved by a build that still allowed the name is stored.
             HomeData data = HomeData.get(helper.getLevel().getServer());
-            data.setHome(
-                    owner.getUUID(),
-                    "revoke",
-                    HomeLocation.from(owner),
-                    maximumHomes(helper));
+            data.setHome(owner.getUUID(), "revoke", HomeLocation.from(owner), maximumHomes(helper));
             helper.assertTrue(
                     execute(helper, owner, "home revoke") == 1,
                     "A home saved as 'revoke' must still teleport");

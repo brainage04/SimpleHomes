@@ -21,4 +21,8 @@ Run command, persistence, teleport, and access-control GameTests on both loaders
 ./gradlew runAllGameTests
 ```
 
+## Settings
+
+SimpleHomes is configured by two game rules, not a config file: `simplehomes:maximum_homes` (integer, 1 to 2147483647, 10 by default) and `simplehomes:reset_fall` (boolean, on by default). Each is read from the server's game rules where it is used, so `/gamerule simplehomes:maximum_homes <n>` applies to the next command with no restart. The GameTests set them through `/gamerule` and put them back afterwards, through the `withMaximumHomes` and `withResetFall` helpers in `SimpleHomesGameTests`.
+
 The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [MinecraftModConventions](https://github.com/brainage04/MinecraftModConventions) for shared build, GameTest, recording, and publishing conventions.
