@@ -291,9 +291,7 @@ class NameLookupTest {
         data.sawName(guest, "Steve", 2_000);
         data.recordName(guest, "Alex");
         assertEquals(
-                List.of(
-                        new HomeData.SeenName("Steve", 2_000),
-                        new HomeData.SeenName("Alex", 0)),
+                List.of(new HomeData.SeenName("Steve", 2_000), new HomeData.SeenName("Alex", 0)),
                 data.names(guest));
         data.recordName(guest, "Alex");
         assertEquals(2, data.names(guest).size(), "a repeated name must not be added twice");
