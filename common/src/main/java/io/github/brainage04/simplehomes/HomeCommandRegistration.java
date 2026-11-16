@@ -210,21 +210,31 @@ public final class HomeCommandRegistration {
             SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
             return 0;
         }
-        long wait = ShareRateLimit.of(server).refuse(owner.getUUID());
-        if (wait > 0) {
-            SimpleHomes.FEEDBACK.error(
-                    owner, "You can use /sharehome again in %s.", ShareRateLimit.describe(wait));
-            return 0;
-        }
         GameProfileArgument.Result result =
                 context.getArgument("players", GameProfileArgument.Result.class);
         if (result instanceof GameProfileArgument.SelectorResult) {
-            return apply(owner, data, name, grant, result.getNames(context.getSource()));
+            Collection<NameAndId> named = result.getNames(context.getSource());
+            if (!charged(server, owner)) return 0;
+            return apply(owner, data, name, grant, named);
         }
         String typed = typedArgument(context, "players");
         return grant
                 ? grantTyped(server, owner, data, name, typed)
                 : revokeTyped(server, owner, data, name, typed);
+    }
+
+    /**
+     * Counts this use against the player's allowance, or answers false and says how long to wait.
+     * Every use that changes access is counted, whichever name it was given; a use that changes
+     * nothing must not be, or the [Revoke] button the ambiguous list prints would be refused for a
+     * second because the list itself, which changes nothing, spent the use.
+     */
+    private static boolean charged(MinecraftServer server, ServerPlayer owner) {
+        long wait = ShareRateLimit.of(server).refuse(owner.getUUID());
+        if (wait == 0) return true;
+        SimpleHomes.FEEDBACK.error(
+                owner, "You can use /sharehome again in %s.", ShareRateLimit.describe(wait));
+        return false;
     }
 
     /**
@@ -235,15 +245,22 @@ public final class HomeCommandRegistration {
     private static int grantTyped(
             MinecraftServer server, ServerPlayer owner, HomeData data, String name, String typed) {
         List<NameAndId> matches = named(server, typed);
-        if (!matches.isEmpty()) return apply(owner, data, name, true, matches);
+        if (!matches.isEmpty()) {
+            if (!charged(server, owner)) return 0;
+            return apply(owner, data, name, true, matches);
+        }
         UUID id = parseUuid(typed);
         if (id != null) {
             List<NameAndId> cached = List.copyOf(cachedNames(server, List.of(id)));
-            if (!cached.isEmpty()) return apply(owner, data, name, true, cached);
+            if (!cached.isEmpty()) {
+                if (!charged(server, owner)) return 0;
+                return apply(owner, data, name, true, cached);
+            }
             SimpleHomes.FEEDBACK.error(
                     owner, "No player with the id '%s' has joined this server.", typed);
             return 0;
         }
+        if (!charged(server, owner)) return 0;
         SimpleHomes.FEEDBACK.neutral(owner, "Looking up %s...", typed);
         UUID ownerId = owner.getUUID();
         // The answer arrives on the server thread later, so the command's result is 1 (accepted)
@@ -294,7 +311,7 @@ public final class HomeCommandRegistration {
             default -> {
                 SimpleHomes.FEEDBACK.error(
                         owner,
-                        "Too many name lookups on this server right now. Try again in a minute.");
+                        "Too many name lookups on this server right now. Try again in a couple of minutes.");
                 return 0;
             }
         }
@@ -315,6 +332,7 @@ public final class HomeCommandRegistration {
                         owner, "That player does not have access to '%s'.", name);
                 return 0;
             }
+            if (!charged(server, owner)) return 0;
             return report(owner, data.revoke(ownerId, name, List.of(id)), false);
         }
         List<UUID> matches = new ArrayList<>(data.guestsNamed(ownerId, name, typed));
@@ -325,6 +343,7 @@ public final class HomeCommandRegistration {
         }
         if (matches.isEmpty()) return revokeFoundByName(server, owner, name, typed);
         if (matches.size() == 1) {
+            if (!charged(server, owner)) return 0;
             return report(owner, data.revoke(ownerId, name, List.of(matches.getFirst())), false);
         }
         SimpleHomes.FEEDBACK.neutral(
@@ -348,6 +367,7 @@ public final class HomeCommandRegistration {
     private static int revokeFoundByName(
             MinecraftServer server, ServerPlayer owner, String name, String typed) {
         UUID ownerId = owner.getUUID();
+        if (!charged(server, owner)) return 0;
         SimpleHomes.FEEDBACK.neutral(owner, "Looking up %s...", typed);
         int[] outcome = {1};
         NameLookup.of(server)
@@ -401,7 +421,7 @@ public final class HomeCommandRegistration {
             default -> {
                 SimpleHomes.FEEDBACK.error(
                         owner,
-                        "Too many name lookups on this server right now. Try again in a minute.");
+                        "Too many name lookups on this server right now. Try again in a couple of minutes.");
                 yield 0;
             }
         };

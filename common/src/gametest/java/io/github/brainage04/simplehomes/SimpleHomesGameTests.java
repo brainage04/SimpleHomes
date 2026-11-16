@@ -1168,15 +1168,18 @@ public final class SimpleHomesGameTests {
                             Runnable::run,
                             server::execute,
                             server::isSameThread));
-            helper.assertTrue(
-                    share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
-                    "A name Mojang does not know must be refused");
-            assertLastMessage(
-                    helper,
-                    owner,
-                    "[SimpleHomes] Mojang has no player named 'HomesNeverSeen'.",
-                    0xFF5555);
-            NameLookup.reset(server);
+            try {
+                helper.assertTrue(
+                        share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
+                        "A name Mojang does not know must be refused");
+                assertLastMessage(
+                        helper,
+                        owner,
+                        "[SimpleHomes] Mojang has no player named 'HomesNeverSeen'.",
+                        0xFF5555);
+            } finally {
+                NameLookup.reset(server);
+            }
             try (GameTestPlayer online = GameTestPlayer.join(helper, "HomesOnline")) {
                 online.moveTo(helper, new BlockPos(4, 1, 4));
                 helper.assertTrue(
@@ -1259,6 +1262,13 @@ public final class SimpleHomesGameTests {
                                                 .anyMatch(seen -> seen.name().equals("HomesGhost")),
                                         "The answer must be recorded in the name history");
                                 helper.assertTrue(
+                                        server.services()
+                                                .nameToIdCache()
+                                                .get(profile.getId())
+                                                .isPresent(),
+                                        "A found answer must cache the name, so the next command"
+                                                + " answers without a lookup");
+                                helper.assertTrue(
                                         owner.messageTexts()
                                                 .contains(
                                                         "[SimpleHomes] Granted home access for 1"
@@ -1312,9 +1322,11 @@ public final class SimpleHomesGameTests {
                             + data.guests(player.getUUID(), "base"));
             // The name is cached so the retry answers at once. The GameTest server's cache is an
             // in-memory mock that never writes usercache.json (GameTestServer.java:80,416-441), so
-            // the retry itself cannot be run here; the cache entry is what makes it work.
+            // the retry itself cannot be run here; the cache entry is what makes it work. The
+            // lookup by id is the one that can fail: the mock invents an entry for any name
+            // (GameTestServer.java:425-427) but answers by id only for what was added.
             helper.assertTrue(
-                    server.services().nameToIdCache().get("HomesLate").isPresent(),
+                    server.services().nameToIdCache().get(profile.getId()).isPresent(),
                     "A stale answer must cache the name so the retry answers at once");
             helper.assertTrue(
                     lookups[0] == 1, "The stale answer must be the only lookup, got " + lookups[0]);
@@ -1493,9 +1505,13 @@ public final class SimpleHomesGameTests {
                                             "/sharehome revoke base " + renamed,
                                             "/sharehome revoke base " + holder)),
                     "Each match must carry a revoke button for its own id, got " + clicks);
+            // The click runs in the same second as the list, through execute() rather than
+            // share(), so the allowance the list would have spent is the point of the step.
             helper.assertTrue(
-                    share(helper, player, "sharehome revoke base " + renamed) == 1,
-                    "A clicked revoke must revoke the guest whose id it names");
+                    execute(helper, player, "sharehome revoke base " + renamed) == 1,
+                    "A clicked revoke must revoke the guest whose id it names, and the list may not"
+                            + " spend the allowance the click needs, got "
+                            + owner.messageTexts());
             helper.assertTrue(
                     data.guests(player.getUUID(), "base").equals(List.of(holder)),
                     "Only the clicked guest may be revoked, got "

@@ -266,6 +266,44 @@ class NameLookupTest {
                 data.names(guest));
     }
 
+    /** The ten-name cap is what keeps a guest's history bounded, so it needs a step of its own. */
+    @Test
+    void aGuestKeepsOnlyTheTenNewestNames() {
+        HomeData data = new HomeData();
+        UUID guest = UUID.randomUUID();
+        for (int use = 0; use < 12; use++) {
+            data.sawName(guest, "Name" + use, 1_000L + use);
+        }
+        List<String> kept = data.names(guest).stream().map(HomeData.SeenName::name).toList();
+        assertEquals(10, kept.size(), "a guest must keep ten names, got " + kept);
+        assertEquals(List.of("Name11", "Name10", "Name9"), kept.subList(0, 3));
+        assertTrue(!kept.contains("Name0") && !kept.contains("Name1"), "the oldest must go");
+    }
+
+    /** A guest every owner has revoked cannot match a name again, so its history is dropped. */
+    @Test
+    void aRevokedGuestsHistoryIsDropped() {
+        HomeData data = new HomeData();
+        UUID owner = UUID.randomUUID();
+        UUID guest = UUID.randomUUID();
+        data.setHome(owner, "base", location(), 10);
+        data.grant(owner, "base", List.of(guest));
+        data.sawName(guest, "Alex", 1_000);
+        data.revoke(owner, "base", List.of(guest));
+        assertTrue(data.names(guest).isEmpty(), "a revoked guest must keep no history");
+        // A guest another owner still shares with keeps theirs.
+        UUID other = UUID.randomUUID();
+        data.setHome(other, "spot", location(), 10);
+        data.grant(owner, "base", List.of(guest));
+        assertEquals(1, data.grant(other, "spot", List.of(guest)), "the other owner must share");
+        data.sawName(guest, "Alex", 2_000);
+        data.revoke(owner, "base", List.of(guest));
+        assertEquals(
+                List.of(new HomeData.SeenName("Alex", 2_000)),
+                data.names(guest),
+                "a guest another owner still shares with must keep their history");
+    }
+
     @Test
     void nameHistorySurvivesSerialization() {
         HomeData data = new HomeData();
@@ -386,10 +424,6 @@ class NameLookupTest {
 
     private static NameLookup.Answer notFound() {
         return new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null);
-    }
-
-    private static NameLookup.Answer failed() {
-        return new NameLookup.Answer(NameLookup.Status.FAILED, null);
     }
 
     private static HomeLocation location() {

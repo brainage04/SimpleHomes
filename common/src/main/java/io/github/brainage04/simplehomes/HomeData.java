@@ -155,7 +155,13 @@ public final class HomeData extends SavedData {
         int changed = before - allowed.size();
         if (allowed.isEmpty()) ownerShares.remove(name);
         if (ownerShares.isEmpty()) shares.remove(owner);
-        if (changed > 0) setDirty();
+        if (changed == 0) return 0;
+        // A guest every owner has revoked can never match again, so its history is dropped rather
+        // than rewritten into the saved data on every later change.
+        guests.stream()
+                .filter(guest -> shares.values().stream().noneMatch(set -> set.contains(guest)))
+                .forEach(guestNames::remove);
+        setDirty();
         return changed;
     }
 
