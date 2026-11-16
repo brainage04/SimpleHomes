@@ -87,6 +87,11 @@ public final class NameLookup {
     private final LongSupplier clock;
     private int next;
 
+    /**
+     * Slots of {@link #recent} used so far. A timestamp may legitimately be 0, so it cannot say.
+     */
+    private int filled;
+
     public NameLookup(
             Repository repository,
             Executor worker,
@@ -241,13 +246,14 @@ public final class NameLookup {
         long now = clock.getAsLong();
         for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {
             int index = (next + slot) % recent.length;
-            long oldest = recent[index];
-            if (oldest != 0 && now - oldest < SERVER_WINDOW) return false;
+            if (index >= filled) continue;
+            if (now - recent[index] < SERVER_WINDOW) return false;
         }
         for (int slot = 0; slot < REQUESTS_PER_LOOKUP; slot++) {
             recent[next] = now;
             next = (next + 1) % recent.length;
         }
+        filled = Math.min(filled + REQUESTS_PER_LOOKUP, recent.length);
         return true;
     }
 }

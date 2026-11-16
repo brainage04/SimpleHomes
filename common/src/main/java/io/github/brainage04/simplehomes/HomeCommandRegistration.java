@@ -225,9 +225,9 @@ public final class HomeCommandRegistration {
 
     /**
      * Counts this use against the player's allowance, or answers false and says how long to wait.
-     * Every use that changes access is counted, whichever name it was given; a use that changes
-     * nothing must not be, or the [Revoke] button the ambiguous list prints would be refused for a
-     * second because the list itself, which changes nothing, spent the use.
+     * Every use that reaches a grant or a revoke is counted, whichever name it was given. The
+     * ambiguous list is not, because it only prints: charging it would refuse the [Revoke] button
+     * it prints whenever the button is clicked inside the same second.
      */
     private static boolean charged(MinecraftServer server, ServerPlayer owner) {
         long wait = ShareRateLimit.of(server).refuse(owner.getUUID());
