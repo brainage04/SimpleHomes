@@ -207,8 +207,9 @@ public final class HomeData extends SavedData {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
         if (seen.stream().anyMatch(entry -> entry.name().equalsIgnoreCase(name))) return;
         if (seen.size() >= NAMES_PER_ACCOUNT) {
+            // Typed names sit after the joins, oldest first, so the first one found is the oldest.
             int oldestTyped = -1;
-            for (int index = seen.size() - 1; index >= 0; index--) {
+            for (int index = 0; index < seen.size(); index++) {
                 if (seen.get(index).lastSeen() == 0) {
                     oldestTyped = index;
                     break;

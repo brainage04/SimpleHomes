@@ -1793,10 +1793,13 @@ public final class SimpleHomesGameTests {
             }
             // The join hook prunes, so recording every join cannot grow the saved data without
             // bound. Seeded past the cap rather than joined, which would need 1001 logins. The
-            // fillers are newer than the owner's own join, so the owner survives only because an
-            // online player is in the keep set.
+            // fillers are newer than the owner's own join and than the guest's, so each survives
+            // only through the keep set: the owner as an online player, the guest as a guest.
             UUID oldest = UUID.randomUUID();
             data.recordJoin(oldest, "HomesOldest", 1L);
+            UUID oldGuest = UUID.randomUUID();
+            data.grant(owner.player().getUUID(), "base", List.of(oldGuest));
+            data.recordJoin(oldGuest, "HomesOldGuest", 2L);
             long newest = System.currentTimeMillis() + 1_000L;
             for (int use = 0; use < 1_001; use++) {
                 data.recordJoin(UUID.randomUUID(), "HomesFiller" + use, newest + use);
@@ -1810,13 +1813,31 @@ public final class SimpleHomesGameTests {
                         "A join must prune the oldest non-guest history, got "
                                 + data.names(oldest));
                 helper.assertTrue(
-                        !data.names(guest).isEmpty(),
-                        "A join must keep a guest's history, got " + data.names(guest));
+                        !data.names(oldGuest).isEmpty(),
+                        "A join must keep a guest's history, got " + data.names(oldGuest));
                 helper.assertTrue(
                         !data.names(owner.player().getUUID()).isEmpty(),
                         "A join must keep an online player's history, got "
                                 + data.names(owner.player().getUUID()));
             }
+            // A grant prunes too, and runs after the grant, so the account just granted is in the
+            // keep set even though its history is the oldest in the map.
+            UUID granted = UUID.randomUUID();
+            data.recordJoin(granted, "HomesGranted", 1L);
+            UUID firstLater = UUID.randomUUID();
+            data.recordJoin(firstLater, "HomesLater0", newest);
+            for (int use = 1; use < 1_001; use++) {
+                data.recordJoin(UUID.randomUUID(), "HomesLater" + use, newest + use);
+            }
+            helper.assertTrue(
+                    share(helper, owner.player(), "sharehome base " + granted) == 1,
+                    "The grant must land, got " + owner.messageTexts());
+            helper.assertTrue(
+                    !data.names(granted).isEmpty(),
+                    "A grant must keep the granted account's history, got " + data.names(granted));
+            helper.assertTrue(
+                    data.names(firstLater).isEmpty(),
+                    "A grant must prune the oldest non-guest history");
         }
         helper.succeed();
     }
