@@ -180,6 +180,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "an_ambiguous_revoke_lists_each_guest_and_revokes_by_id",
                 SimpleHomesGameTests::anAmbiguousRevokeListsEachGuestAndRevokesById);
+        register(
+                event,
+                "a_revoke_looks_up_a_name_no_history_holds",
+                SimpleHomesGameTests::aRevokeLooksUpANameNoHistoryHolds);
     }
 
     private static void register(

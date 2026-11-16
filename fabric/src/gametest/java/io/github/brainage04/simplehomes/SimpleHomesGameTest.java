@@ -216,4 +216,9 @@ public final class SimpleHomesGameTest {
     public void anAmbiguousRevokeListsEachGuestAndRevokesById(GameTestHelper helper) {
         SimpleHomesGameTests.anAmbiguousRevokeListsEachGuestAndRevokesById(helper);
     }
+
+    @GameTest
+    public void aRevokeLooksUpANameNoHistoryHolds(GameTestHelper helper) {
+        SimpleHomesGameTests.aRevokeLooksUpANameNoHistoryHolds(helper);
+    }
 }

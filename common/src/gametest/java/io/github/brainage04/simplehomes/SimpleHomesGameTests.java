@@ -1505,6 +1505,81 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * A revoke of a name the server holds no history for asks Mojang which account it is and
+     * revokes that one, and a name whose account is not a guest of this home revokes nothing.
+     */
+    public static void aRevokeLooksUpANameNoHistoryHolds(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        GameProfile guest = new GameProfile(UUID.randomUUID(), "HomesRenamed");
+        UUID notAGuest = UUID.randomUUID();
+        int[] lookups = {0};
+        NameLookup.install(
+                server,
+                new NameLookup(
+                        name -> {
+                            lookups[0]++;
+                            if (guest.getName().equalsIgnoreCase(name)) {
+                                return new NameLookup.Answer(
+                                        NameLookup.Status.FOUND, new NameAndId(guest));
+                            }
+                            if (name.equalsIgnoreCase("HomesNotAGuest")) {
+                                return new NameLookup.Answer(
+                                        NameLookup.Status.FOUND,
+                                        new NameAndId(notAGuest, "HomesNotAGuest"));
+                            }
+                            return new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null);
+                        },
+                        Runnable::run,
+                        server::execute,
+                        server::isSameThread));
+        HomeData data = HomeData.get(server);
+        UUID stranger = UUID.randomUUID();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            data.grant(player.getUUID(), "base", List.of(guest.id(), stranger));
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base HomesNeverSeen") == 0,
+                    "A name Mojang does not know must revoke nothing");
+            assertLastMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] No guest of 'base' is named 'HomesNeverSeen'.",
+                    0xFF5555);
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").containsAll(List.of(guest.id(), stranger)),
+                    "A name Mojang does not know must leave every guest in place");
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base HomesRenamed") == 1,
+                    "A revoke by a name the server has no history for must revoke the account"
+                            + " Mojang names");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").equals(List.of(stranger)),
+                    "Only the looked-up account may be revoked, got "
+                            + data.guests(player.getUUID(), "base"));
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base HomesNotAGuest") == 0,
+                    "A name whose account is not a guest must revoke nothing");
+            assertLastMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] HomesNotAGuest does not have access to 'base'.",
+                    0xFF5555);
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").equals(List.of(stranger)),
+                    "A name whose account is not a guest must leave the guests in place, got "
+                            + data.guests(player.getUUID(), "base"));
+            helper.assertTrue(lookups[0] == 3, "All three revokes must be looked up, got " + lookups[0]);
+            NameLookup.reset(server);
+        }
+        helper.succeed();
+    }
+
     private static void writeCache(MinecraftServer server, UUID id, String name) {
         Path file = server.getServerDirectory().resolve("usercache.json");
         try {

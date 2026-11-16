@@ -323,10 +323,7 @@ public final class HomeCommandRegistration {
                 matches.add(cached.id());
             }
         }
-        if (matches.isEmpty()) {
-            SimpleHomes.FEEDBACK.error(owner, "No guest of '%s' is named '%s'.", name, typed);
-            return 0;
-        }
+        if (matches.isEmpty()) return revokeFoundByName(server, owner, name, typed);
         if (matches.size() == 1) {
             return report(owner, data.revoke(ownerId, name, List.of(matches.getFirst())), false);
         }
@@ -340,6 +337,74 @@ public final class HomeCommandRegistration {
             owner.sendSystemMessage(describe(data, guest, name));
         }
         return 0;
+    }
+
+    /**
+     * Revokes from the guest a name belongs to when nothing the server has seen for the owner's
+     * guests matches. The owner typed a name the server holds no history for, so the account
+     * behind it is looked up at Mojang: a guest of this home whose id that is loses access, and a
+     * name belonging to anyone else revokes nothing.
+     */
+    private static int revokeFoundByName(
+            MinecraftServer server, ServerPlayer owner, String name, String typed) {
+        UUID ownerId = owner.getUUID();
+        SimpleHomes.FEEDBACK.neutral(owner, "Looking up %s...", typed);
+        int[] outcome = {1};
+        NameLookup.of(server)
+                .lookup(
+                        typed,
+                        answer -> {
+                            ServerPlayer current = server.getPlayerList().getPlayer(ownerId);
+                            if (current == null) return;
+                            outcome[0] = revokeAnswer(server, current, name, typed, answer);
+                        });
+        return outcome[0];
+    }
+
+    private static int revokeAnswer(
+            MinecraftServer server,
+            ServerPlayer owner,
+            String name,
+            String typed,
+            NameLookup.Answer answer) {
+        UUID ownerId = owner.getUUID();
+        HomeData data = HomeData.get(server);
+        if (answer.status() == NameLookup.Status.FOUND) {
+            NameAndId profile = answer.profile();
+            if (!data.guests(ownerId, name).contains(profile.id())) {
+                SimpleHomes.FEEDBACK.error(
+                        owner, "%s does not have access to '%s'.", profile.name(), name);
+                return 0;
+            }
+            // add() also rewrites usercache.json (CachedUserNameToIdResolver.java:86-95).
+            server.services().nameToIdCache().add(profile);
+            return report(owner, data.revoke(ownerId, name, List.of(profile.id())), false);
+        }
+        if (answer.status() == NameLookup.Status.STALE) {
+            server.services().nameToIdCache().add(answer.profile());
+            SimpleHomes.FEEDBACK.error(
+                    owner,
+                    "Found '%s', but the lookup took too long to act on. Run the command again.",
+                    typed);
+            return 0;
+        }
+        return switch (answer.status()) {
+            case NOT_FOUND -> {
+                SimpleHomes.FEEDBACK.error(owner, "No guest of '%s' is named '%s'.", name, typed);
+                yield 0;
+            }
+            case FAILED -> {
+                SimpleHomes.FEEDBACK.error(
+                        owner, "Could not look up '%s' right now. Try again later.", typed);
+                yield 0;
+            }
+            default -> {
+                SimpleHomes.FEEDBACK.error(
+                        owner,
+                        "Too many name lookups on this server right now. Try again in a minute.");
+                yield 0;
+            }
+        };
     }
 
     /** One line of the ambiguous revoke list: the guest, its other names, and a revoke button. */
