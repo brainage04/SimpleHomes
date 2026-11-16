@@ -181,4 +181,14 @@ public final class SimpleHomesGameTest {
     public void aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(GameTestHelper helper) {
         SimpleHomesGameTests.aSpotOverTwoChunksLoadsBothAgainWhenAnotherModTakesOne(helper);
     }
+
+    @GameTest(maxTicks = 40)
+    public void fallIsResetOnArrival(GameTestHelper helper) {
+        SimpleHomesGameTests.fallIsResetOnArrival(helper);
+    }
+
+    @GameTest(maxTicks = 40)
+    public void dropCheckCountsTheCarriedFallWhenTheOptionIsOff(GameTestHelper helper) {
+        SimpleHomesGameTests.dropCheckCountsTheCarriedFallWhenTheOptionIsOff(helper);
+    }
 }

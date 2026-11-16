@@ -12,8 +12,9 @@ import java.nio.file.Path;
 /** A file that cannot be loaded leaves the default in place and is kept. */
 public final class SimpleHomesConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Settings DEFAULT = new Settings(10);
+    private static final Settings DEFAULT = new Settings(10, true);
     private static Settings settings = DEFAULT;
+    private static Path directory;
 
     private SimpleHomesConfig() {}
 
@@ -21,7 +22,17 @@ public final class SimpleHomesConfig {
         return settings.maximumHomes();
     }
 
+    /**
+     * Whether a teleport resets the player's fall distance on arrival, as an ender pearl's does
+     * (ThrownEnderpearl.java:123,135). Off keeps the fall they had, as vanilla's /tp does
+     * (TeleportCommand.java:241-248).
+     */
+    public static boolean resetFallOnArrival() {
+        return settings.resetFallOnArrival();
+    }
+
     public static void load(Path configDirectory) {
+        directory = configDirectory;
         ConfigFile<Settings> file =
                 ConfigFile.builder(
                                 configDirectory.resolve("simplehomes.json"),
@@ -32,11 +43,18 @@ public final class SimpleHomesConfig {
                         .description(
                                 "SimpleHomes configuration (using maximumHomes="
                                         + DEFAULT.maximumHomes()
+                                        + ", resetFallOnArrival="
+                                        + DEFAULT.resetFallOnArrival()
                                         + ")")
                         .logger(SimpleHomes.LOGGER)
                         .build();
         file.loadOrCreate();
         settings = file.value();
+    }
+
+    /** The directory the config was last loaded from, so a test can put the file back. */
+    static Path directory() {
+        return directory;
     }
 
     private static Settings decode(JsonElement document) {
@@ -55,8 +73,16 @@ public final class SimpleHomesConfig {
         if (configured < 1) {
             throw new JsonParseException("maximumHomes must be at least 1");
         }
-        return new Settings(configured);
+        // A file written before this setting existed has no field, and keeps the default.
+        JsonElement reset = root.get("resetFallOnArrival");
+        if (reset == null) {
+            return new Settings(configured, DEFAULT.resetFallOnArrival());
+        }
+        if (!(reset instanceof JsonPrimitive flag) || !flag.isBoolean()) {
+            throw new JsonParseException("resetFallOnArrival must be true or false");
+        }
+        return new Settings(configured, flag.getAsBoolean());
     }
 
-    private record Settings(int maximumHomes) {}
+    private record Settings(int maximumHomes, boolean resetFallOnArrival) {}
 }

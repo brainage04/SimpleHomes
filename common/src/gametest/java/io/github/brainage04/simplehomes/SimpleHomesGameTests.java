@@ -9,6 +9,9 @@ import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import io.netty.util.ReferenceCountUtil;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -1847,6 +1850,171 @@ public final class SimpleHomesGameTests {
         } catch (CommandSyntaxException exception) {
             return true;
         }
+    }
+
+    /**
+     * Runs {@code body} with {@code resetFallOnArrival} set to {@code on} in the config file, and
+     * puts the file and the loaded value back afterwards so no other test sees it changed.
+     */
+    private static void withResetFallOnArrival(
+            GameTestHelper helper, boolean on, Runnable body) {
+        Path directory = SimpleHomesConfig.directory();
+        helper.assertTrue(directory != null, "the config was never loaded");
+        Path file = directory.resolve("simplehomes.json");
+        String before = null;
+        try {
+            before = Files.exists(file) ? Files.readString(file) : null;
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not read " + file, exception);
+        }
+        try {
+            writeConfig(file, on);
+            SimpleHomesConfig.load(directory);
+            helper.assertTrue(
+                    SimpleHomesConfig.resetFallOnArrival() == on,
+                    "resetFallOnArrival did not load as " + on);
+            body.run();
+        } finally {
+            try {
+                if (before == null) {
+                    Files.deleteIfExists(file);
+                } else {
+                    Files.writeString(file, before);
+                }
+            } catch (IOException exception) {
+                throw new IllegalStateException("Could not put " + file + " back", exception);
+            }
+            SimpleHomesConfig.load(directory);
+        }
+    }
+
+    private static void writeConfig(Path file, boolean resetFallOnArrival) {
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(
+                    file,
+                    "{\"maximumHomes\": "
+                            + SimpleHomesConfig.maximumHomes()
+                            + ", \"resetFallOnArrival\": "
+                            + resetFallOnArrival
+                            + "}\n");
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not write " + file, exception);
+        }
+    }
+
+    /**
+     * A player who is already falling arrives with the fall reset, as an ender pearl's teleport
+     * resets it (ThrownEnderpearl.java:123,135), so the landing below the home deals no damage.
+     * With the option off the fall is kept, as vanilla's /tp keeps it (TeleportCommand.java:241-248
+     * resets only the vertical velocity and the ground flag). The kept fall here is shorter than
+     * the safe fall distance, because a longer one is refused by the drop check, which counts it
+     * ({@link #dropCheckCountsTheCarriedFallWhenTheOptionIsOff}).
+     */
+    public static void fallIsResetOnArrival(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesFall").gameMode(GameType.SURVIVAL)) {
+            ServerPlayer player = owner.player();
+            owner.markLoaded();
+            helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
+            Vec3 home = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 1, 2)));
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "ground",
+                            new HomeLocation(level.dimension().identifier(), home, 0.0F, 0.0F),
+                            SimpleHomesConfig.maximumHomes());
+            owner.moveTo(helper, new BlockPos(5, 1, 5));
+            player.fallDistance = 8.0F;
+            helper.assertTrue(
+                    execute(helper, player, "home ground") == 1,
+                    "A home on the ground must teleport, got " + owner.messageTexts());
+            helper.assertTrue(
+                    player.fallDistance == 0.0F,
+                    "The arrival kept a fall of " + player.fallDistance + " blocks");
+            land(player);
+            helper.assertTrue(
+                    player.getHealth() == player.getMaxHealth(),
+                    "The arrival took "
+                            + (player.getMaxHealth() - player.getHealth())
+                            + " damage from a fall that was reset");
+            withResetFallOnArrival(
+                    helper,
+                    false,
+                    () -> {
+                        owner.moveTo(helper, new BlockPos(5, 1, 5));
+                        player.setHealth(player.getMaxHealth());
+                        player.fallDistance = 2.0F;
+                        helper.assertTrue(
+                                execute(helper, player, "home ground") == 1,
+                                "A home on the ground must teleport with the option off, got "
+                                        + owner.messageTexts());
+                        helper.assertTrue(
+                                player.fallDistance == 2.0F,
+                                "The arrival changed the fall to "
+                                        + player.fallDistance
+                                        + " blocks");
+                        land(player);
+                        helper.assertTrue(
+                                player.getHealth() == player.getMaxHealth(),
+                                "A kept fall shorter than the safe fall distance hurt");
+                    });
+        }
+        helper.succeed();
+    }
+
+    /**
+     * With the option off the drop check counts the fall the player already has, so a home on the
+     * ground is refused when that fall alone would hurt. With the option on (its default) the same
+     * home works, because the arrival resets the fall.
+     */
+    public static void dropCheckCountsTheCarriedFallWhenTheOptionIsOff(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        try (GameTestPlayer owner =
+                GameTestPlayer.join(helper, "HomesCarried").gameMode(GameType.SURVIVAL)) {
+            ServerPlayer player = owner.player();
+            helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
+            Vec3 home = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 1, 2)));
+            HomeData.get(level.getServer())
+                    .setHome(
+                            player.getUUID(),
+                            "ground",
+                            new HomeLocation(level.dimension().identifier(), home, 0.0F, 0.0F),
+                            SimpleHomesConfig.maximumHomes());
+            withResetFallOnArrival(
+                    helper,
+                    false,
+                    () -> {
+                        owner.moveTo(helper, new BlockPos(5, 1, 5));
+                        Vec3 before = player.position();
+                        player.fallDistance = 8.0F;
+                        owner.clearMessages();
+                        helper.assertTrue(
+                                execute(helper, player, "home ground") == 0,
+                                "A carried fall that would hurt was not counted");
+                        helper.assertTrue(
+                                player.position().equals(before),
+                                "A refused home must not move the player");
+                        assertMessage(
+                                helper,
+                                owner,
+                                "[SimpleHomes] Could not teleport to home 'ground' because it is"
+                                        + " in the air above a long drop.",
+                                0xFF5555);
+                    });
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Lands {@code player} where they are, as the server does from a client's movement packet
+     * (ServerGamePacketListenerImpl.java:1216): a tick's small downward move that ends on the
+     * ground, which adds that move to the fall distance and then deals the fall's damage
+     * (Entity.java:1584-1601).
+     */
+    private static void land(ServerPlayer player) {
+        player.doCheckFallDamage(0.0, -0.1, 0.0, true);
     }
 
     private static int execute(GameTestHelper helper, ServerPlayer player, String command) {

@@ -80,11 +80,14 @@ class SimpleHomesTest {
         Path config = directory.resolve("simplehomes.json");
         try {
             SimpleHomesConfig.load(directory);
-            assertEquals("{\n  \"maximumHomes\": 10\n}\n", Files.readString(config));
+            assertEquals(
+                    "{\n  \"maximumHomes\": 10,\n  \"resetFallOnArrival\": true\n}\n",
+                    Files.readString(config));
             String previous = "{\n  \"maximumHomes\": 7\n}" + System.lineSeparator();
             Files.writeString(config, previous);
             SimpleHomesConfig.load(directory);
             assertEquals(7, SimpleHomesConfig.maximumHomes());
+            assertTrue(SimpleHomesConfig.resetFallOnArrival());
             assertEquals(previous, Files.readString(config));
         } finally {
             SimpleHomesConfig.load(directory.resolve("reset"));

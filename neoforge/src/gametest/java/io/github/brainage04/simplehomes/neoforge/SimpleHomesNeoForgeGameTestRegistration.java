@@ -152,6 +152,11 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
+        register(event, "fall_is_reset_on_arrival", SimpleHomesGameTests::fallIsResetOnArrival);
+        register(
+                event,
+                "drop_check_counts_the_carried_fall_when_the_option_is_off",
+                SimpleHomesGameTests::dropCheckCountsTheCarriedFallWhenTheOptionIsOff);
     }
 
     private static void register(
