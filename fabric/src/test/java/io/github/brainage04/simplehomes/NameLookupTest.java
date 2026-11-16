@@ -106,7 +106,8 @@ class NameLookupTest {
                 NameLookup.find(
                         repository(
                                 callback ->
-                                        callback.onProfileLookupSucceeded("Steve", profile.id())),
+                                        callback.onProfileLookupSucceeded(
+                                                "Steve", profile.id())),
                         "steve"));
         assertEquals(
                 NameLookup.Status.NOT_FOUND,
