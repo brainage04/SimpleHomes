@@ -199,9 +199,8 @@ public final class HomeData extends SavedData {
     /**
      * Records {@code name} as one the account has held, without claiming the server saw the player
      * under it: an owner typing a name is not a sighting, and "last seen" is the last join. A name
-     * already recorded keeps its place and its time. A full history drops its oldest typed name to
-     * make room, because a typed name is the weakest record and a name nothing holds cannot be
-     * matched again.
+     * already recorded keeps its place and its time. A full history drops its oldest typed name
+     * first, then its oldest join name, because a name nothing holds cannot be matched again.
      */
     public void recordName(UUID guest, String name) {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
@@ -214,8 +213,7 @@ public final class HomeData extends SavedData {
                     break;
                 }
             }
-            if (oldestTyped < 0) return;
-            seen.remove(oldestTyped);
+            seen.remove(oldestTyped >= 0 ? oldestTyped : seen.size() - 1);
         }
         seen.addLast(new SeenName(name, 0));
         setDirty();
