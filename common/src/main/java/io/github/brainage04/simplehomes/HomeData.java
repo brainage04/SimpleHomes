@@ -187,6 +187,19 @@ public final class HomeData extends SavedData {
         setDirty();
     }
 
+    /**
+     * Records {@code name} as one the account has held, without claiming the server saw the player
+     * under it: an owner typing a name is not a sighting, and "last seen" is the last join. A name
+     * already recorded keeps its place and its time, and a full history keeps the names it has.
+     */
+    public void recordName(UUID guest, String name) {
+        List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
+        if (seen.size() >= NAMES_PER_GUEST) return;
+        if (seen.stream().anyMatch(entry -> entry.name().equalsIgnoreCase(name))) return;
+        seen.addLast(new SeenName(name, 0));
+        setDirty();
+    }
+
     /** The names the server has seen for {@code guest}, newest first. */
     public List<SeenName> names(UUID guest) {
         return List.copyOf(guestNames.getOrDefault(guest, List.of()));

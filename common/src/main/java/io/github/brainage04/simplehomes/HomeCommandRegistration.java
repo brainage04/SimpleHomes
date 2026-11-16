@@ -465,8 +465,8 @@ public final class HomeCommandRegistration {
     }
 
     /**
-     * The account's current name, its other names and when it was last seen. The name the caller
-     * matched on is the current one; the history supplies the rest.
+     * The account's current name, its other names and when it was last seen. A name an owner typed
+     * is recorded with no time, so "last seen" is the newest join the server recorded.
      */
     private static MutableComponent accountLine(HomeData data, UUID id, String currentName) {
         List<HomeData.SeenName> seen = data.names(id);
@@ -481,15 +481,18 @@ public final class HomeCommandRegistration {
                     Component.literal(" (previous name " + String.join(", ", previous) + ")")
                             .withStyle(ChatFormatting.GRAY));
         }
-        if (!seen.isEmpty()) {
-            line.append(
-                    Component.literal(
-                                    " last seen "
-                                            + LAST_SEEN.format(
-                                                    Instant.ofEpochMilli(
-                                                            seen.getFirst().lastSeen())))
-                            .withStyle(ChatFormatting.GRAY));
-        }
+        seen.stream()
+                .filter(entry -> entry.lastSeen() > 0)
+                .findFirst()
+                .ifPresent(
+                        entry ->
+                                line.append(
+                                        Component.literal(
+                                                        " last seen "
+                                                                + LAST_SEEN.format(
+                                                                        Instant.ofEpochMilli(
+                                                                                entry.lastSeen())))
+                                                .withStyle(ChatFormatting.GRAY)));
         return line;
     }
 
@@ -560,8 +563,7 @@ public final class HomeCommandRegistration {
             String name,
             boolean grant,
             Collection<NameAndId> named) {
-        long now = System.currentTimeMillis();
-        for (NameAndId profile : named) data.sawName(profile.id(), profile.name(), now);
+        for (NameAndId profile : named) data.recordName(profile.id(), profile.name());
         Collection<UUID> guests = named.stream().map(NameAndId::id).toList();
         int changed =
                 grant

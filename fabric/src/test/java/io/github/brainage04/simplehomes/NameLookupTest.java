@@ -280,6 +280,30 @@ class NameLookupTest {
         assertTrue(!kept.contains("Name0") && !kept.contains("Name1"), "the oldest must go");
     }
 
+    /**
+     * A name an owner typed is recorded without a time, so it can be matched again while "last
+     * seen" stays the last join the server recorded.
+     */
+    @Test
+    void aRecordedNameCarriesNoSighting() {
+        HomeData data = new HomeData();
+        UUID guest = UUID.randomUUID();
+        data.sawName(guest, "Steve", 2_000);
+        data.recordName(guest, "Alex");
+        assertEquals(
+                List.of(
+                        new HomeData.SeenName("Steve", 2_000),
+                        new HomeData.SeenName("Alex", 0)),
+                data.names(guest));
+        data.recordName(guest, "Alex");
+        assertEquals(2, data.names(guest).size(), "a repeated name must not be added twice");
+        data.recordName(guest, "Steve");
+        assertEquals(
+                new HomeData.SeenName("Steve", 2_000),
+                data.names(guest).getFirst(),
+                "recording a name already seen must keep its time");
+    }
+
     /** A guest every owner has revoked cannot match a name again, so its history is dropped. */
     @Test
     void aRevokedGuestsHistoryIsDropped() {
