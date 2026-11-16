@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,13 @@ public final class HomeData extends SavedData {
 
     /** How many names one account keeps. A player who renames often keeps the recent ones. */
     private static final int NAMES_PER_GUEST = 10;
+
+    /**
+     * How many accounts that are not guests keep a join history. The cap matches the 1000 profiles
+     * {@code usercache.json} keeps (CachedUserNameToIdResolver.java:40,172), which is the window a
+     * name can be resolved in anyway.
+     */
+    private static final int NON_GUEST_HISTORIES = 1000;
 
     private static final Codec<Map<String, HomeLocation>> OWNER_HOMES_CODEC =
             Codec.unboundedMap(Codec.STRING, HomeLocation.CODEC);
@@ -132,10 +140,11 @@ public final class HomeData extends SavedData {
         return List.copyOf(shares.getOrDefault(owner, Map.of()).getOrDefault(name, Set.of()));
     }
 
-    /** Whether any owner has shared a home with {@code guest}. */
-    public boolean isGuest(UUID guest) {
-        return shares.values().stream()
-                .anyMatch(guests -> guests.values().stream().anyMatch(set -> set.contains(guest)));
+    /** Every account some owner has shared a home with. */
+    public Set<UUID> allGuests() {
+        Set<UUID> guests = new HashSet<>();
+        shares.values().forEach(entries -> entries.values().forEach(guests::addAll));
+        return guests;
     }
 
     public int grant(UUID owner, String name, Collection<UUID> guests) {
@@ -190,19 +199,65 @@ public final class HomeData extends SavedData {
     /**
      * Records {@code name} as one the account has held, without claiming the server saw the player
      * under it: an owner typing a name is not a sighting, and "last seen" is the last join. A name
-     * already recorded keeps its place and its time, and a full history keeps the names it has.
+     * already recorded keeps its place and its time. A full history drops its oldest typed name to
+     * make room, because a typed name is the weakest record and a name nothing holds cannot be
+     * matched again.
      */
     public void recordName(UUID guest, String name) {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
-        if (seen.size() >= NAMES_PER_GUEST) return;
         if (seen.stream().anyMatch(entry -> entry.name().equalsIgnoreCase(name))) return;
+        if (seen.size() >= NAMES_PER_GUEST) {
+            int oldestTyped = -1;
+            for (int index = seen.size() - 1; index >= 0; index--) {
+                if (seen.get(index).lastSeen() == 0) {
+                    oldestTyped = index;
+                    break;
+                }
+            }
+            if (oldestTyped < 0) return;
+            seen.remove(oldestTyped);
+        }
         seen.addLast(new SeenName(name, 0));
         setDirty();
     }
 
-    /** The names the server has seen for {@code guest}, newest first. */
+    /**
+     * The names recorded for {@code guest}: the joins newest first, then the names an owner typed,
+     * oldest first.
+     */
     public List<SeenName> names(UUID guest) {
         return List.copyOf(guestNames.getOrDefault(guest, List.of()));
+    }
+
+    /**
+     * Records a join for any account, guest or not, so a player granted access later still shows
+     * the login they made before it. {@link #pruneNames} keeps the map bounded.
+     */
+    public void recordJoin(UUID player, String name, long now) {
+        sawName(player, name, now);
+    }
+
+    /**
+     * Drops the history of accounts that are neither in {@code keep} nor among the newest {@link
+     * #NON_GUEST_HISTORIES} entries, so recording every join cannot grow the saved data without
+     * bound.
+     */
+    public void pruneNames(Set<UUID> keep) {
+        List<UUID> droppable =
+                guestNames.entrySet().stream()
+                        .filter(entry -> !keep.contains(entry.getKey()))
+                        .sorted(
+                                Comparator.comparingLong(
+                                        entry ->
+                                                entry.getValue().isEmpty()
+                                                        ? 0
+                                                        : entry.getValue().getFirst().lastSeen()))
+                        .map(Map.Entry::getKey)
+                        .toList();
+        int excess = droppable.size() - NON_GUEST_HISTORIES;
+        if (excess <= 0) return;
+        droppable.stream().limit(excess).forEach(guestNames::remove);
+        setDirty();
     }
 
     /** The guests of {@code owner}'s home {@code name} whose history holds {@code typed}. */

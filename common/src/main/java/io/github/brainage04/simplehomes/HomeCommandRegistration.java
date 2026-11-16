@@ -261,7 +261,7 @@ public final class HomeCommandRegistration {
                                             candidateLine(
                                                     data,
                                                     match.id(),
-                                                    match.name(),
+                                                    displayName(server, data, match.id()),
                                                     "Share",
                                                     "/sharehome " + name + " " + match.id()))
                             .toList());
@@ -274,10 +274,12 @@ public final class HomeCommandRegistration {
         if (id != null) {
             List<NameAndId> cached = List.copyOf(cachedNames(server, List.of(id)));
             if (cached.isEmpty()) {
-                // The [Share] button names an account by id, and the cache entry can have expired
-                // while the history the list was built from still holds the name.
-                List<HomeData.SeenName> seen = data.names(id);
-                if (!seen.isEmpty()) cached = List.of(new NameAndId(id, seen.getFirst().name()));
+                // The [Share] button names an account by id, and usercache.json keeps only the 1000
+                // most recently used profiles (CachedUserNameToIdResolver.java:40,172), so an
+                // account the list was built from can be gone from the cache.
+                if (!data.names(id).isEmpty()) {
+                    cached = List.of(new NameAndId(id, displayName(server, data, id)));
+                }
             }
             if (!cached.isEmpty()) {
                 if (!charged(server, owner)) return 0;

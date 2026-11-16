@@ -31,8 +31,9 @@ public final class ShareRateLimit {
     }
 
     /**
-     * The allowance the ambiguous revoke's list uses, kept apart from {@link #of}: the list must
-     * not charge the player the click its own button needs, and it must still be bounded.
+     * The allowance a candidate list uses, for both the ambiguous grant and the ambiguous revoke,
+     * kept apart from {@link #of}: the list must not charge the player the click its own button
+     * needs, and it must still be bounded.
      */
     public static ShareRateLimit listing(MinecraftServer server) {
         synchronized (LISTINGS) {

@@ -9,8 +9,10 @@ import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.services.ProfileNotFoundException;
 import com.mojang.serialization.JsonOps;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -300,6 +302,49 @@ class NameLookupTest {
                 new HomeData.SeenName("Steve", 2_000),
                 data.names(guest).getFirst(),
                 "recording a name already seen must keep its time");
+    }
+
+    /** A full history drops its oldest typed name, so a newly typed name can still be matched. */
+    @Test
+    void aFullHistoryMakesRoomForANewTypedName() {
+        HomeData data = new HomeData();
+        UUID guest = UUID.randomUUID();
+        for (int use = 0; use < 10; use++) {
+            data.sawName(guest, "Name" + use, 1_000L + use);
+        }
+        data.recordName(guest, "Typed");
+        List<String> kept = data.names(guest).stream().map(HomeData.SeenName::name).toList();
+        assertEquals(10, kept.size(), "the history must stay at ten names, got " + kept);
+        assertTrue(kept.contains("Typed"), "the typed name must be recorded, got " + kept);
+        assertTrue(!kept.contains("Name0"), "the oldest join name must go, got " + kept);
+    }
+
+    /** Recording every join cannot grow the saved data without bound. */
+    @Test
+    void joinsOutsideTheGuestSetArePruned() {
+        HomeData data = new HomeData();
+        UUID owner = UUID.randomUUID();
+        UUID guest = UUID.randomUUID();
+        data.setHome(owner, "base", location(), 10);
+        data.grant(owner, "base", List.of(guest));
+        data.recordJoin(guest, "Guest", 1_000);
+        List<UUID> players = new ArrayList<>();
+        for (int use = 0; use < 1_100; use++) {
+            UUID player = UUID.randomUUID();
+            players.add(player);
+            data.recordJoin(player, "Player" + use, 2_000L + use);
+        }
+        data.pruneNames(Set.of(guest));
+        assertEquals(
+                List.of(new HomeData.SeenName("Guest", 1_000)),
+                data.names(guest),
+                "a guest must keep their history");
+        long kept = players.stream().filter(player -> !data.names(player).isEmpty()).count();
+        assertEquals(1_000, kept, "the newest 1000 non-guest histories must stay, got " + kept);
+        assertTrue(
+                data.names(players.getFirst()).isEmpty(), "the oldest non-guest history must go");
+        assertTrue(
+                !data.names(players.getLast()).isEmpty(), "the newest non-guest history must stay");
     }
 
     /** A guest every owner has revoked cannot match a name again, so its history is dropped. */

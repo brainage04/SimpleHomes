@@ -4,7 +4,11 @@ import io.github.brainage04.brainagelib.feedback.ModFeedback;
 import io.github.brainage04.brainagelib.help.ServerModHelpEntry;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,14 +37,24 @@ public final class SimpleHomes {
 
     /**
      * Records the name a player joined under, so "last seen" in the share lists is their real last
-     * login rather than the last time an owner shared or revoked under that name. Only a guest is
-     * recorded: the lists can only show guests, and recording every player who ever joined would
-     * grow the saved history past the guest set it is bounded by.
+     * login rather than the last time an owner shared or revoked under that name. Every join is
+     * recorded, not only a guest's: a player granted access later must still show the login they
+     * made before it. {@link HomeData#pruneNames} keeps the map bounded.
      */
     public static void playerJoined(ServerPlayer player) {
-        HomeData data = HomeData.get(player.level().getServer());
-        if (!data.isGuest(player.getUUID())) return;
-        data.sawName(player.getUUID(), player.getScoreboardName(), System.currentTimeMillis());
+        MinecraftServer server = player.level().getServer();
+        HomeData data = HomeData.get(server);
+        data.recordJoin(player.getUUID(), player.getScoreboardName(), System.currentTimeMillis());
+        data.pruneNames(guestsAndOnline(server, data));
+    }
+
+    /** Every account a share list can show: the guests of any home, and the players online now. */
+    private static Set<UUID> guestsAndOnline(MinecraftServer server, HomeData data) {
+        Set<UUID> keep = new HashSet<>(data.allGuests());
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            keep.add(online.getUUID());
+        }
+        return keep;
     }
 
     public static Identifier of(String path) {
