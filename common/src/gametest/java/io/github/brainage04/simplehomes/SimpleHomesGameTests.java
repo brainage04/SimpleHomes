@@ -1696,11 +1696,11 @@ public final class SimpleHomesGameTests {
             execute(helper, player, "sethome base");
             data.grant(player.getUUID(), "base", List.of(guest));
             long now = System.currentTimeMillis();
-            data.sawName(guest, "HomesFirst", now - 86_400_000L);
-            data.sawName(guest, "HomesBoth", now);
+            data.sawName(guest, "HomesSoloOld", now - 86_400_000L);
+            data.sawName(guest, "HomesSolo", now);
             owner.clearMessages();
             helper.assertTrue(
-                    share(helper, player, "sharehome revoke base HomesBoth") == 1,
+                    share(helper, player, "sharehome revoke base HomesSolo") == 1,
                     "A single match must revoke the guest");
             helper.assertTrue(
                     data.guests(player.getUUID(), "base").isEmpty(),
@@ -1711,8 +1711,8 @@ public final class SimpleHomesGameTests {
                     "The revoke must still report what it did, got " + texts);
             String named = texts.getLast();
             helper.assertTrue(
-                    named.startsWith(" HomesBoth")
-                            && named.contains("previous name HomesFirst")
+                    named.startsWith(" HomesSolo")
+                            && named.contains("previous name HomesSoloOld")
                             && named.contains("last seen "),
                     "The revoke must name the account it revoked, got " + texts);
         }
