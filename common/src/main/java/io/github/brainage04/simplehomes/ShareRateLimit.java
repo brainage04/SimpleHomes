@@ -89,8 +89,7 @@ public final class ShareRateLimit {
     }
 
     /**
-     * Clears every allowance for {@code server}: the share allowance, and the one the ambiguous
-     * list uses.
+     * Clears every allowance for {@code server}: the share allowance and the candidate-list one.
      */
     public static void clearAll(MinecraftServer server) {
         of(server).clear();

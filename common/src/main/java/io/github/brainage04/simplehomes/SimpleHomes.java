@@ -48,8 +48,12 @@ public final class SimpleHomes {
         data.pruneNames(guestsAndOnline(server, data));
     }
 
-    /** Every account a share list can show: the guests of any home, and the players online now. */
-    private static Set<UUID> guestsAndOnline(MinecraftServer server, HomeData data) {
+    /**
+     * The accounts whose history must survive a prune: the guests of any home, and the players
+     * online now. A cached account that is neither keeps its history only while it is among the
+     * newest 1000 entries.
+     */
+    static Set<UUID> guestsAndOnline(MinecraftServer server, HomeData data) {
         Set<UUID> keep = new HashSet<>(data.allGuests());
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
             keep.add(online.getUUID());

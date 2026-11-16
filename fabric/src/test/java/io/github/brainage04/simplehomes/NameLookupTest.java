@@ -304,9 +304,11 @@ class NameLookupTest {
                 "recording a name already seen must keep its time");
     }
 
-    /** A full history drops its oldest typed name, so a newly typed name can still be matched. */
+    /**
+     * A full history of joins drops its oldest join name, so a typed name can still be recorded.
+     */
     @Test
-    void aFullHistoryMakesRoomForANewTypedName() {
+    void aFullHistoryOfJoinsMakesRoomForATypedName() {
         HomeData data = new HomeData();
         UUID guest = UUID.randomUUID();
         for (int use = 0; use < 10; use++) {
@@ -317,6 +319,29 @@ class NameLookupTest {
         assertEquals(10, kept.size(), "the history must stay at ten names, got " + kept);
         assertTrue(kept.contains("Typed"), "the typed name must be recorded, got " + kept);
         assertTrue(!kept.contains("Name0"), "the oldest join name must go, got " + kept);
+    }
+
+    /** A full history holding a typed name drops that name before any join name. */
+    @Test
+    void aFullHistoryDropsItsTypedNameBeforeAJoinName() {
+        HomeData data = new HomeData();
+        UUID guest = UUID.randomUUID();
+        for (int use = 0; use < 9; use++) {
+            data.sawName(guest, "Name" + use, 1_000L + use);
+        }
+        data.recordName(guest, "TypedFirst");
+        data.recordName(guest, "TypedSecond");
+        List<String> kept = data.names(guest).stream().map(HomeData.SeenName::name).toList();
+        assertEquals(10, kept.size(), "the history must stay at ten names, got " + kept);
+        assertTrue(
+                kept.contains("TypedSecond"), "the new typed name must be recorded, got " + kept);
+        assertTrue(!kept.contains("TypedFirst"), "the older typed name must go, got " + kept);
+        assertTrue(
+                kept.containsAll(
+                        java.util.stream.IntStream.range(0, 9)
+                                .mapToObj(use -> "Name" + use)
+                                .toList()),
+                "every join name must survive, got " + kept);
     }
 
     /** Recording every join cannot grow the saved data without bound. */

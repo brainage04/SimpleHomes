@@ -35,7 +35,7 @@ public final class HomeData extends SavedData {
     }
 
     /** How many names one account keeps. A player who renames often keeps the recent ones. */
-    private static final int NAMES_PER_GUEST = 10;
+    private static final int NAMES_PER_ACCOUNT = 10;
 
     /**
      * How many accounts that are not guests keep a join history. The cap matches the 1000 profiles
@@ -186,13 +186,13 @@ public final class HomeData extends SavedData {
 
     /**
      * Records that the server has seen {@code name} for {@code guest} now, keeping the newest
-     * {@link #NAMES_PER_GUEST} names. A name seen again moves to the front with the new time.
+     * {@link #NAMES_PER_ACCOUNT} names. A name seen again moves to the front with the new time.
      */
     public void sawName(UUID guest, String name, long now) {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
         seen.removeIf(entry -> entry.name().equalsIgnoreCase(name));
         seen.addFirst(new SeenName(name, now));
-        while (seen.size() > NAMES_PER_GUEST) seen.removeLast();
+        while (seen.size() > NAMES_PER_ACCOUNT) seen.removeLast();
         setDirty();
     }
 
@@ -205,7 +205,7 @@ public final class HomeData extends SavedData {
     public void recordName(UUID guest, String name) {
         List<SeenName> seen = guestNames.computeIfAbsent(guest, ignored -> new ArrayList<>());
         if (seen.stream().anyMatch(entry -> entry.name().equalsIgnoreCase(name))) return;
-        if (seen.size() >= NAMES_PER_GUEST) {
+        if (seen.size() >= NAMES_PER_ACCOUNT) {
             int oldestTyped = -1;
             for (int index = seen.size() - 1; index >= 0; index--) {
                 if (seen.get(index).lastSeen() == 0) {
@@ -246,10 +246,7 @@ public final class HomeData extends SavedData {
                         .filter(entry -> !keep.contains(entry.getKey()))
                         .sorted(
                                 Comparator.comparingLong(
-                                        entry ->
-                                                entry.getValue().isEmpty()
-                                                        ? 0
-                                                        : entry.getValue().getFirst().lastSeen()))
+                                        entry -> entry.getValue().getFirst().lastSeen()))
                         .map(Map.Entry::getKey)
                         .toList();
         int excess = droppable.size() - NON_GUEST_HISTORIES;

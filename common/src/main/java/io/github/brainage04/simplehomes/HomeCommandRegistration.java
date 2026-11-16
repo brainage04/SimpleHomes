@@ -573,6 +573,9 @@ public final class HomeCommandRegistration {
             boolean grant,
             Collection<NameAndId> named) {
         for (NameAndId profile : named) data.recordName(profile.id(), profile.name());
+        // A grant records a name for an account that may be neither a guest nor online, so the
+        // non-guest cap is enforced here as well as on a join.
+        data.pruneNames(SimpleHomes.guestsAndOnline(owner.level().getServer(), data));
         Collection<UUID> guests = named.stream().map(NameAndId::id).toList();
         int changed =
                 grant
