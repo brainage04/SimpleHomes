@@ -18,8 +18,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.UserNameToIdResolver;
@@ -70,14 +70,18 @@ public final class HomeCommandRegistration {
                         .then(
                                 ownHomeName()
                                         .then(
-                                                argument("players", EntityArgument.players())
+                                                argument(
+                                                                "players",
+                                                                GameProfileArgument.gameProfile())
                                                         .executes(
                                                                 HomeCommandRegistration
                                                                         ::grantNamedHome))));
         HelpPage.create(SimpleHomes.FEEDBACK, "simplehomes")
                 .line("/sethome <name> - create or update a home where you stand")
                 .line("/home <name> - teleport to one of your homes")
-                .line("/sharehome <name> <players> - let players use one of your homes")
+                .line(
+                        "/sharehome <name> <players> - let players use one of your homes,"
+                                + " online or offline")
                 .line("/sharehome revoke <name> <players> - take that access away again")
                 .line("/homeof <player> <name> - teleport to a home someone shared with you")
                 .line("You can have up to %d homes.", SimpleHomesConfig.maximumHomes())
@@ -155,7 +159,12 @@ public final class HomeCommandRegistration {
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
         Collection<NameAndId> owners =
-                players(context, "player", data.ownersAllowing(name, guest.getUUID()));
+                players(
+                        context,
+                        "player",
+                        cachedNames(
+                                context.getSource().getServer(),
+                                data.ownersAllowing(name, guest.getUUID())));
         if (owners.size() > 1) {
             SimpleHomes.FEEDBACK.error(guest, "Select exactly one home owner.");
             return 0;
@@ -184,14 +193,23 @@ public final class HomeCommandRegistration {
         String name = normalizedName(rawName, owner);
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
-        Collection<UUID> guests =
-                grant
-                        ? EntityArgument.getPlayers(context, "players").stream()
-                                .map(ServerPlayer::getUUID)
-                                .toList()
-                        : players(context, "players", data.guests(owner.getUUID(), name)).stream()
-                                .map(NameAndId::id)
-                                .toList();
+        Collection<NameAndId> named =
+                players(
+                        context,
+                        "players",
+                        grant
+                                ? ServerNameCache.known(context.getSource().getServer())
+                                : cachedNames(
+                                        context.getSource().getServer(),
+                                        data.guests(owner.getUUID(), name)));
+        if (grant && named.isEmpty()) {
+            SimpleHomes.FEEDBACK.error(
+                    owner,
+                    "No player named '%s' has joined this server.",
+                    typedArgument(context, "players"));
+            return 0;
+        }
+        Collection<UUID> guests = named.stream().map(NameAndId::id).toList();
         int changed =
                 grant
                         ? data.grant(owner.getUUID(), name, guests)
@@ -240,7 +258,7 @@ public final class HomeCommandRegistration {
     private static Collection<NameAndId> players(
             CommandContext<CommandSourceStack> context,
             String argument,
-            Collection<UUID> candidates)
+            Collection<NameAndId> candidates)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         GameProfileArgument.Result result =
                 context.getArgument(argument, GameProfileArgument.Result.class);
@@ -253,11 +271,12 @@ public final class HomeCommandRegistration {
         // 118-120). The lookup by UUID only reads the cache
         // (CachedUserNameToIdResolver.java:135-143).
         String typed = typedArgument(context, argument);
-        UserNameToIdResolver names = context.getSource().getServer().services().nameToIdCache();
-        return candidates.stream()
-                .flatMap(candidate -> names.get(candidate).stream())
-                .filter(player -> player.name().equalsIgnoreCase(typed))
-                .toList();
+        return candidates.stream().filter(player -> player.name().equalsIgnoreCase(typed)).toList();
+    }
+
+    private static Collection<NameAndId> cachedNames(MinecraftServer server, Collection<UUID> ids) {
+        UserNameToIdResolver names = server.services().nameToIdCache();
+        return ids.stream().flatMap(id -> names.get(id).stream()).toList();
     }
 
     private static String typedArgument(

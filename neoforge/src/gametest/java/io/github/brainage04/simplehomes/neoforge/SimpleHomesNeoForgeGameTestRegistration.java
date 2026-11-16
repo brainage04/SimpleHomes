@@ -152,6 +152,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "owners_revoke_guests_who_are_offline",
                 SimpleHomesGameTests::ownersRevokeGuestsWhoAreOffline);
+        register(
+                event,
+                "owners_grant_access_to_guests_who_are_offline",
+                SimpleHomesGameTests::ownersGrantAccessToGuestsWhoAreOffline);
     }
 
     private static void register(

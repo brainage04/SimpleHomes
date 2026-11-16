@@ -9,6 +9,9 @@ import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
 import io.netty.util.ReferenceCountUtil;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +27,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
@@ -1114,6 +1118,67 @@ public final class SimpleHomesGameTests {
             }
         }
         helper.succeed();
+    }
+
+    public static void ownersGrantAccessToGuestsWhoAreOffline(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        UUID away = UUIDUtil.createOfflinePlayerUUID("HomesAway");
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sethome base") == 1,
+                    "/sethome must create the home");
+            // Written after the join: a join saves the cache from memory and would drop the entry.
+            writeCache(server, away, "HomesAway");
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sharehome base HomesAway") == 1,
+                    "An owner must be able to share with a player who is offline");
+            owner.clearMessages();
+            helper.assertTrue(
+                    execute(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
+                    "A name the server has not cached must be refused");
+            assertMessage(
+                    helper,
+                    owner,
+                    "[SimpleHomes] No player named 'HomesNeverSeen' has joined this server.",
+                    0xFF5555);
+            try (GameTestPlayer online = GameTestPlayer.join(helper, "HomesOnline")) {
+                online.moveTo(helper, new BlockPos(4, 1, 4));
+                helper.assertTrue(
+                        execute(helper, owner.player(), "sharehome base @a[name=HomesOnline]") == 1,
+                        "A selector must still grant to the online players");
+                List<UUID> guests = HomeData.get(server).guests(owner.player().getUUID(), "base");
+                helper.assertTrue(
+                        guests.contains(online.player().getUUID()),
+                        "The selector must grant to the online player, got " + guests);
+                helper.assertTrue(
+                        guests.contains(away),
+                        "The selector must keep the offline guest, got " + guests);
+                helper.assertTrue(
+                        guests.size() == 2, "The selector must not add anyone else, got " + guests);
+            }
+        }
+        try (GameTestPlayer joined =
+                GameTestPlayer.join(helper, new GameProfile(away, "HomesAway"))) {
+            joined.moveTo(helper, new BlockPos(5, 1, 5));
+            helper.assertTrue(
+                    execute(helper, joined.player(), "homeof HomesKeeper base") == 1,
+                    "A guest granted while offline must reach the home after joining");
+        }
+        helper.succeed();
+    }
+
+    private static void writeCache(MinecraftServer server, UUID id, String name) {
+        Path file = server.getServerDirectory().resolve("usercache.json");
+        try {
+            Files.writeString(
+                    file,
+                    ("[{\"name\":\"%s\",\"uuid\":\"%s\","
+                                    + "\"expiresOn\":\"2099-01-01 00:00:00 +0000\"}]")
+                            .formatted(name, id));
+        } catch (IOException exception) {
+            throw new AssertionError("Cannot write " + file, exception);
+        }
     }
 
     public static void playerOnlyCommandsAnswerNonPlayersThroughModFeedback(GameTestHelper helper) {
