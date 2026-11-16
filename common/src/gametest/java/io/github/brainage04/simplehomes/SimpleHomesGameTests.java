@@ -1264,7 +1264,7 @@ public final class SimpleHomesGameTests {
                                 helper.assertTrue(
                                         server.services()
                                                 .nameToIdCache()
-                                                .get(profile.getId())
+                                                .get(profile.id())
                                                 .isPresent(),
                                         "A found answer must cache the name, so the next command"
                                                 + " answers without a lookup");
@@ -1326,7 +1326,7 @@ public final class SimpleHomesGameTests {
             // lookup by id is the one that can fail: the mock invents an entry for any name
             // (GameTestServer.java:425-427) but answers by id only for what was added.
             helper.assertTrue(
-                    server.services().nameToIdCache().get(profile.getId()).isPresent(),
+                    server.services().nameToIdCache().get(profile.id()).isPresent(),
                     "A stale answer must cache the name so the retry answers at once");
             helper.assertTrue(
                     lookups[0] == 1, "The stale answer must be the only lookup, got " + lookups[0]);
