@@ -578,14 +578,15 @@ public final class HomeCommandRegistration {
                 grant
                         ? data.grant(owner.getUUID(), name, guests)
                         : data.revoke(owner.getUUID(), name, guests);
+        // A grant records a name for an account that may be neither a guest nor online, so the
+        // non-guest cap is enforced here as well as on a join. It runs after the grant, so the
+        // account just granted is already in the keep set, and before the missing-home return, so
+        // a name recorded for a home that is gone is pruned too.
+        data.pruneNames(SimpleHomes.guestsAndOnline(owner.level().getServer(), data));
         if (changed < 0) {
             SimpleHomes.FEEDBACK.error(owner, "You do not have a home named '%s'.", name);
             return 0;
         }
-        // A grant records a name for an account that may be neither a guest nor online, so the
-        // non-guest cap is enforced here as well as on a join. It runs after the grant, so the
-        // account just granted is already in the keep set.
-        data.pruneNames(SimpleHomes.guestsAndOnline(owner.level().getServer(), data));
         return report(owner, changed, grant);
     }
 

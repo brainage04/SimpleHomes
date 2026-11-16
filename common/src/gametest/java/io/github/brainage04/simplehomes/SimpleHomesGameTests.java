@@ -1669,10 +1669,9 @@ public final class SimpleHomesGameTests {
                                             "/sharehome base " + holder)),
                     "Each match must carry a share button for its own id, got " + clicks);
             // The click runs in the same second as the list, through execute() rather than share(),
-            // so the allowance the list would have spent is the point of the step. The cache is
-            // rewritten without the clicked account first, so the click resolves it from the
-            // history, as it must once usercache.json has dropped the account.
-            writeCache(server, Map.of(holder, "HomesBoth"));
+            // so the allowance the list would have spent is the point of the step. Neither account
+            // ever joined, so the click resolves the id from the history, as it must once
+            // usercache.json has dropped the account.
             helper.assertTrue(
                     execute(helper, player, "sharehome base " + renamed) == 1,
                     "A clicked share must grant the account whose id it names, and the list may not"
@@ -1793,11 +1792,14 @@ public final class SimpleHomesGameTests {
                                 + data.names(later));
             }
             // The join hook prunes, so recording every join cannot grow the saved data without
-            // bound. Seeded past the cap rather than joined, which would need 1001 logins.
+            // bound. Seeded past the cap rather than joined, which would need 1001 logins. The
+            // fillers are newer than the owner's own join, so the owner survives only because an
+            // online player is in the keep set.
             UUID oldest = UUID.randomUUID();
             data.recordJoin(oldest, "HomesOldest", 1L);
+            long newest = System.currentTimeMillis() + 1_000L;
             for (int use = 0; use < 1_001; use++) {
-                data.recordJoin(UUID.randomUUID(), "HomesFiller" + use, 2L + use);
+                data.recordJoin(UUID.randomUUID(), "HomesFiller" + use, newest + use);
             }
             try (GameTestPlayer pruner =
                     GameTestPlayer.join(
@@ -1811,8 +1813,9 @@ public final class SimpleHomesGameTests {
                         !data.names(guest).isEmpty(),
                         "A join must keep a guest's history, got " + data.names(guest));
                 helper.assertTrue(
-                        !data.names(pruner.player().getUUID()).isEmpty(),
-                        "A join must keep the joining player's history");
+                        !data.names(owner.player().getUUID()).isEmpty(),
+                        "A join must keep an online player's history, got "
+                                + data.names(owner.player().getUUID()));
             }
         }
         helper.succeed();
