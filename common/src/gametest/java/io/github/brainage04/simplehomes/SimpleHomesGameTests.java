@@ -15,10 +15,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.UUIDUtil;
@@ -1598,14 +1600,177 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    /**
+     * A grant by a name two cached accounts hold grants neither and lists both with a button that
+     * names the account's id, so one command never hands access to an account the owner did not
+     * identify.
+     */
+    public static void anAmbiguousGrantListsEachAccountAndGrantsById(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        HomeData data = HomeData.get(server);
+        UUID renamed = UUID.randomUUID();
+        UUID holder = UUID.randomUUID();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            long now = System.currentTimeMillis();
+            data.sawName(renamed, "HomesFirst", now - 86_400_000L);
+            data.sawName(renamed, "HomesBoth", now);
+            data.sawName(holder, "HomesBoth", now);
+            // Written after the join, which saves the cache from memory and would drop these.
+            writeCache(server, Map.of(renamed, "HomesBoth", holder, "HomesBoth"));
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesBoth") == 0,
+                    "An ambiguous grant must grant nothing");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").isEmpty(),
+                    "Neither account may be granted by an ambiguous name, got "
+                            + data.guests(player.getUUID(), "base"));
+            List<Component> messages = owner.messages();
+            helper.assertTrue(
+                    messages.getFirst()
+                            .getString()
+                            .equals(
+                                    "[SimpleHomes] 2 players have been called 'HomesBoth'."
+                                            + " Choose the one to share with:"),
+                    "The list must say why nothing was granted, got " + owner.messageTexts());
+            List<String> lines = new ArrayList<>();
+            List<String> clicks = new ArrayList<>();
+            for (Component line : messages.subList(1, messages.size())) {
+                lines.add(line.getString());
+                line.visit(
+                        (style, segment) -> {
+                            if (segment.trim().equals("[Share]")
+                                    && style.getClickEvent()
+                                            instanceof ClickEvent.RunCommand(String command)) {
+                                clicks.add(command);
+                            }
+                            return Optional.empty();
+                        },
+                        Style.EMPTY);
+            }
+            helper.assertTrue(
+                    lines.size() == 2
+                            && lines.stream()
+                                    .anyMatch(
+                                            line ->
+                                                    line.contains("HomesBoth")
+                                                            && line.contains("previous name HomesFirst")),
+                    "Each match must list its other names, got " + lines);
+            helper.assertTrue(
+                    clicks.size() == 2
+                            && clicks.containsAll(
+                                    List.of(
+                                            "/sharehome base " + renamed,
+                                            "/sharehome base " + holder)),
+                    "Each match must carry a share button for its own id, got " + clicks);
+            // The click runs in the same second as the list, through execute() rather than share(),
+            // so the allowance the list would have spent is the point of the step.
+            helper.assertTrue(
+                    execute(helper, player, "sharehome base " + renamed) == 1,
+                    "A clicked share must grant the account whose id it names, and the list may not"
+                            + " spend the allowance the click needs, got "
+                            + owner.messageTexts());
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").equals(List.of(renamed)),
+                    "Only the clicked account may be granted, got "
+                            + data.guests(player.getUUID(), "base"));
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A revoke that matches one guest names the account it revoked, with its other names and when
+     * it was last seen, so access never disappears from an account the owner never saw identified.
+     */
+    public static void aSingleRevokeNamesTheAccountItRevoked(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        HomeData data = HomeData.get(server);
+        UUID guest = UUID.randomUUID();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            data.grant(player.getUUID(), "base", List.of(guest));
+            long now = System.currentTimeMillis();
+            data.sawName(guest, "HomesFirst", now - 86_400_000L);
+            data.sawName(guest, "HomesBoth", now);
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome revoke base HomesBoth") == 1,
+                    "A single match must revoke the guest");
+            helper.assertTrue(
+                    data.guests(player.getUUID(), "base").isEmpty(),
+                    "The guest must lose access, got " + data.guests(player.getUUID(), "base"));
+            List<String> texts = owner.messageTexts();
+            helper.assertTrue(
+                    texts.contains("[SimpleHomes] Revoked home access for 1 player(s)."),
+                    "The revoke must still report what it did, got " + texts);
+            String named = texts.getLast();
+            helper.assertTrue(
+                    named.startsWith(" HomesBoth")
+                            && named.contains("previous name HomesFirst")
+                            && named.contains("last seen "),
+                    "The revoke must name the account it revoked, got " + texts);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A guest who joins has their name and the time recorded, so "last seen" is their real last
+     * login rather than the last time an owner shared or revoked under that name.
+     */
+    public static void aJoinRecordsTheNameAndTheTime(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        HomeData data = HomeData.get(server);
+        UUID guest = UUID.randomUUID();
+        long before = System.currentTimeMillis();
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, owner.player(), "sethome base");
+            data.grant(owner.player().getUUID(), "base", List.of(guest));
+            data.sawName(guest, "HomesOldName", before - 86_400_000L);
+            try (GameTestPlayer joined =
+                    GameTestPlayer.join(helper, new GameProfile(guest, "HomesNewName"))) {
+                joined.moveTo(helper, new BlockPos(5, 1, 5));
+                List<HomeData.SeenName> seen = data.names(guest);
+                helper.assertTrue(
+                        !seen.isEmpty() && seen.getFirst().name().equals("HomesNewName"),
+                        "A join must record the name the player joined under, got " + seen);
+                helper.assertTrue(
+                        seen.getFirst().lastSeen() >= before,
+                        "A join must record the time it happened, got " + seen);
+                helper.assertTrue(
+                        seen.stream().anyMatch(entry -> entry.name().equals("HomesOldName")),
+                        "A join must keep the names already recorded, got " + seen);
+            }
+        }
+        helper.succeed();
+    }
+
     private static void writeCache(MinecraftServer server, UUID id, String name) {
+        writeCache(server, Map.of(id, name));
+    }
+
+    /**
+     * Writes a name cache holding exactly {@code names}. Call it after the test's last join: a join
+     * saves the cache from memory and would drop these entries.
+     */
+    private static void writeCache(MinecraftServer server, Map<UUID, String> names) {
         Path file = server.getServerDirectory().resolve("usercache.json");
+        String entries =
+                names.entrySet().stream()
+                        .map(
+                                entry ->
+                                        ("{\"name\":\"%s\",\"uuid\":\"%s\","
+                                                        + "\"expiresOn\":\"2099-01-01 00:00:00"
+                                                        + " +0000\"}")
+                                                .formatted(entry.getValue(), entry.getKey()))
+                        .collect(Collectors.joining(",", "[", "]"));
         try {
-            Files.writeString(
-                    file,
-                    ("[{\"name\":\"%s\",\"uuid\":\"%s\","
-                                    + "\"expiresOn\":\"2099-01-01 00:00:00 +0000\"}]")
-                            .formatted(name, id));
+            Files.writeString(file, entries);
         } catch (IOException exception) {
             throw new AssertionError("Cannot write " + file, exception);
         }

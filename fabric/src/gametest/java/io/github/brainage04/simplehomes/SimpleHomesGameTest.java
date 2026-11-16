@@ -221,4 +221,19 @@ public final class SimpleHomesGameTest {
     public void aRevokeLooksUpANameNoHistoryHolds(GameTestHelper helper) {
         SimpleHomesGameTests.aRevokeLooksUpANameNoHistoryHolds(helper);
     }
+
+    @GameTest
+    public void anAmbiguousGrantListsEachAccountAndGrantsById(GameTestHelper helper) {
+        SimpleHomesGameTests.anAmbiguousGrantListsEachAccountAndGrantsById(helper);
+    }
+
+    @GameTest
+    public void aSingleRevokeNamesTheAccountItRevoked(GameTestHelper helper) {
+        SimpleHomesGameTests.aSingleRevokeNamesTheAccountItRevoked(helper);
+    }
+
+    @GameTest
+    public void aJoinRecordsTheNameAndTheTime(GameTestHelper helper) {
+        SimpleHomesGameTests.aJoinRecordsTheNameAndTheTime(helper);
+    }
 }

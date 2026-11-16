@@ -132,6 +132,12 @@ public final class HomeData extends SavedData {
         return List.copyOf(shares.getOrDefault(owner, Map.of()).getOrDefault(name, Set.of()));
     }
 
+    /** Whether any owner has shared a home with {@code guest}. */
+    public boolean isGuest(UUID guest) {
+        return shares.values().stream()
+                .anyMatch(guests -> guests.values().stream().anyMatch(set -> set.contains(guest)));
+    }
+
     public int grant(UUID owner, String name, Collection<UUID> guests) {
         if (getHome(owner, name).isEmpty()) return -1;
         Set<UUID> allowed =

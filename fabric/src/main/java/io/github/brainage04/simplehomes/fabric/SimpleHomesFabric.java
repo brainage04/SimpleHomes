@@ -4,6 +4,7 @@ import io.github.brainage04.simplehomes.HomeCommandRegistration;
 import io.github.brainage04.simplehomes.SimpleHomes;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class SimpleHomesFabric implements ModInitializer {
@@ -13,5 +14,6 @@ public final class SimpleHomesFabric implements ModInitializer {
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, registryAccess, environment) ->
                         HomeCommandRegistration.register(dispatcher));
+        ServerPlayerEvents.JOIN.register(SimpleHomes::playerJoined);
     }
 }

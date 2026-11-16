@@ -184,6 +184,18 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "a_revoke_looks_up_a_name_no_history_holds",
                 SimpleHomesGameTests::aRevokeLooksUpANameNoHistoryHolds);
+        register(
+                event,
+                "an_ambiguous_grant_lists_each_account_and_grants_by_id",
+                SimpleHomesGameTests::anAmbiguousGrantListsEachAccountAndGrantsById);
+        register(
+                event,
+                "a_single_revoke_names_the_account_it_revoked",
+                SimpleHomesGameTests::aSingleRevokeNamesTheAccountItRevoked);
+        register(
+                event,
+                "a_join_records_the_name_and_the_time",
+                SimpleHomesGameTests::aJoinRecordsTheNameAndTheTime);
     }
 
     private static void register(
