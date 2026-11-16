@@ -548,8 +548,8 @@ public final class HomeCommandRegistration {
     }
 
     /**
-     * The name to show for an account: the newest one the server saw it under, else the newest one
-     * recorded, else its cached name.
+     * The name to show for an account: the newest one the server saw it under, else the first name
+     * recorded for it, else its cached name.
      */
     private static String displayName(MinecraftServer server, HomeData data, UUID id) {
         List<HomeData.SeenName> seen = data.names(id);

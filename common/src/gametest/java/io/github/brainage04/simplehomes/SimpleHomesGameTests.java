@@ -1616,8 +1616,11 @@ public final class SimpleHomesGameTests {
             execute(helper, player, "sethome base");
             long now = System.currentTimeMillis();
             long seenAt = now - 1_000L;
+            // The listed account's newest join name differs from the name usercache.json holds, so
+            // the line can only show the join name if it reads the history rather than the match.
             data.sawName(renamed, "HomesFirst", now - 86_400_000L);
             data.sawName(renamed, "HomesBoth", seenAt);
+            data.sawName(renamed, "HomesNow", now - 500L);
             data.sawName(holder, "HomesBoth", seenAt);
             // Written after the join, which saves the cache from memory and would drop these.
             writeCache(server, Map.of(renamed, "HomesBoth", holder, "HomesBoth"));
@@ -1657,10 +1660,14 @@ public final class SimpleHomesGameTests {
                             && lines.stream()
                                     .anyMatch(
                                             line ->
-                                                    line.contains("HomesBoth")
+                                                    line.startsWith(" HomesNow")
                                                             && line.contains(
-                                                                    "previous name HomesFirst")),
-                    "Each match must list its other names, got " + lines);
+                                                                    "previous name HomesBoth,"
+                                                                            + " HomesFirst"))
+                            && lines.stream().anyMatch(line -> line.startsWith(" HomesBoth")),
+                    "Each match must show the name the account last joined under, with its other"
+                            + " names, got "
+                            + lines);
             helper.assertTrue(
                     clicks.size() == 2
                             && clicks.containsAll(
@@ -1793,17 +1800,19 @@ public final class SimpleHomesGameTests {
             }
             // The join hook prunes, so recording every join cannot grow the saved data without
             // bound. Seeded past the cap rather than joined, which would need 1001 logins. The
-            // fillers are newer than the owner's own join and than the guest's, so each survives
-            // only through the keep set: the owner as an online player, the guest as a guest.
+            // fillers carry times in the past, so the join this test seeds next is newer than any
+            // of them. The owner's own history is older still, so it survives only through the
+            // keep set: as an online player.
             UUID oldest = UUID.randomUUID();
             data.recordJoin(oldest, "HomesOldest", 1L);
             UUID oldGuest = UUID.randomUUID();
             data.grant(owner.player().getUUID(), "base", List.of(oldGuest));
             data.recordJoin(oldGuest, "HomesOldGuest", 2L);
-            long newest = System.currentTimeMillis() + 1_000L;
+            long seeded = before - 10_000L;
             for (int use = 0; use < 1_001; use++) {
-                data.recordJoin(UUID.randomUUID(), "HomesFiller" + use, newest + use);
+                data.recordJoin(UUID.randomUUID(), "HomesFiller" + use, seeded + use);
             }
+            data.recordJoin(owner.player().getUUID(), "HomesKeeper", before - 20_000L);
             try (GameTestPlayer pruner =
                     GameTestPlayer.join(
                             helper, new GameProfile(UUID.randomUUID(), "HomesPruner"))) {
@@ -1825,9 +1834,9 @@ public final class SimpleHomesGameTests {
             UUID granted = UUID.randomUUID();
             data.recordJoin(granted, "HomesGranted", 1L);
             UUID firstLater = UUID.randomUUID();
-            data.recordJoin(firstLater, "HomesLater0", newest);
-            for (int use = 1; use < 1_001; use++) {
-                data.recordJoin(UUID.randomUUID(), "HomesLater" + use, newest + use);
+            data.recordJoin(firstLater, "HomesLater0", 3L);
+            for (int use = 0; use < 1_001; use++) {
+                data.recordJoin(UUID.randomUUID(), "HomesLater" + use, seeded + 2_000L + use);
             }
             helper.assertTrue(
                     share(helper, owner.player(), "sharehome base " + granted) == 1,
@@ -1838,6 +1847,65 @@ public final class SimpleHomesGameTests {
             helper.assertTrue(
                     data.names(firstLater).isEmpty(),
                     "A grant must prune the oldest non-guest history");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A lookup that answers after the home is gone still prunes: the prune runs before the
+     * missing-home check returns, so the account's history goes even though nothing was granted.
+     */
+    public static void aGrantForAMissingHomeStillPrunes(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "HomesGhost");
+        AtomicReference<Runnable> pending = new AtomicReference<>();
+        NameLookup.install(
+                server,
+                new NameLookup(
+                        name ->
+                                new NameLookup.Answer(
+                                        NameLookup.Status.FOUND, new NameAndId(profile)),
+                        pending::set,
+                        runnable -> {
+                            if (server.isSameThread()) runnable.run();
+                            else server.execute(runnable);
+                        },
+                        server::isSameThread));
+        try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
+            ServerPlayer player = owner.player();
+            owner.moveTo(helper, new BlockPos(2, 1, 2));
+            execute(helper, player, "sethome base");
+            owner.clearMessages();
+            helper.assertTrue(
+                    share(helper, player, "sharehome base HomesGhost") == 1,
+                    "The command must answer at once, before the lookup has an answer");
+            // A lookup that answers after the home is gone. The saved data is swapped for a copy
+            // with no home and the account's history at the oldest end of 1002, the answer is
+            // applied, and the original is put back, all on the server thread in this tick, so
+            // the rest of the batch sees what it left. The history sits under another name, so
+            // the answer's name is new to it.
+            HomeData original = HomeData.get(server);
+            HomeData seeded = new HomeData();
+            seeded.recordJoin(profile.id(), "HomesGhostOld", 1L);
+            long base = System.currentTimeMillis() - 10_000L;
+            for (int use = 0; use < 1_001; use++) {
+                seeded.recordJoin(UUID.randomUUID(), "HomesFiller" + use, base + use);
+            }
+            server.overworld().getDataStorage().set(HomeData.TYPE, seeded);
+            try {
+                Runnable answer = pending.get();
+                helper.assertTrue(answer != null, "The command must have asked for the lookup");
+                answer.run();
+                helper.assertTrue(
+                        seeded.names(profile.id()).isEmpty(),
+                        "A grant for a missing home must still prune the oldest non-guest"
+                                + " history, got "
+                                + seeded.names(profile.id()));
+            } finally {
+                server.overworld().getDataStorage().set(HomeData.TYPE, original);
+            }
+        } finally {
+            NameLookup.reset(server);
         }
         helper.succeed();
     }

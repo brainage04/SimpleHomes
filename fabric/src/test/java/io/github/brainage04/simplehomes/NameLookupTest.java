@@ -344,6 +344,34 @@ class NameLookupTest {
                 "every join name must survive, got " + kept);
     }
 
+    /**
+     * A full history holding two typed names drops the older of them, not the newer: the scan runs
+     * from the front, where the oldest typed name sits.
+     */
+    @Test
+    void aFullHistoryDropsTheOldestTypedName() {
+        HomeData data = new HomeData();
+        UUID guest = UUID.randomUUID();
+        for (int use = 0; use < 8; use++) {
+            data.sawName(guest, "Name" + use, 1_000L + use);
+        }
+        data.recordName(guest, "TypedFirst");
+        data.recordName(guest, "TypedSecond");
+        data.recordName(guest, "TypedThird");
+        List<String> kept = data.names(guest).stream().map(HomeData.SeenName::name).toList();
+        assertEquals(10, kept.size(), "the history must stay at ten names, got " + kept);
+        assertTrue(
+                kept.containsAll(List.of("TypedSecond", "TypedThird")),
+                "the two newest typed names must survive, got " + kept);
+        assertTrue(!kept.contains("TypedFirst"), "the oldest typed name must go, got " + kept);
+        assertTrue(
+                kept.containsAll(
+                        java.util.stream.IntStream.range(0, 8)
+                                .mapToObj(use -> "Name" + use)
+                                .toList()),
+                "every join name must survive, got " + kept);
+    }
+
     /** Recording every join cannot grow the saved data without bound. */
     @Test
     void joinsOutsideTheGuestSetArePruned() {

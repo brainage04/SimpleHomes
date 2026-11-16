@@ -196,6 +196,10 @@ public final class SimpleHomesNeoForgeGameTestRegistration {
                 event,
                 "a_join_records_the_name_and_the_time",
                 SimpleHomesGameTests::aJoinRecordsTheNameAndTheTime);
+        register(
+                event,
+                "a_grant_for_a_missing_home_still_prunes",
+                SimpleHomesGameTests::aGrantForAMissingHomeStillPrunes);
     }
 
     private static void register(

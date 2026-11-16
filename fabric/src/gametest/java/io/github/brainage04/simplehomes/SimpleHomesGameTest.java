@@ -236,4 +236,9 @@ public final class SimpleHomesGameTest {
     public void aJoinRecordsTheNameAndTheTime(GameTestHelper helper) {
         SimpleHomesGameTests.aJoinRecordsTheNameAndTheTime(helper);
     }
+
+    @GameTest
+    public void aGrantForAMissingHomeStillPrunes(GameTestHelper helper) {
+        SimpleHomesGameTests.aGrantForAMissingHomeStillPrunes(helper);
+    }
 }
