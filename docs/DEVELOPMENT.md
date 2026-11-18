@@ -1,6 +1,6 @@
 # Development
 
-The GameTests use BrainageLib's test fixtures (`brainagelib-gametest`), which are not on Maven Central. Clone [BrainageLib](https://github.com/brainage04/BrainageLib) beside this checkout, as `../BrainageLib`, at the tag for the `brainagelib_version` in `gradle.properties`, and publish it to its local repository:
+The GameTests use BrainageLib's test fixtures (`brainagelib-gametest`), which are not on Maven Central. Clone [BrainageLib](https://github.com/brainage04/BrainageLib) beside this checkout, as `../BrainageLib`, at the tag for the `brainagelib_version` in `gradle.properties` (or, while that version is unreleased, at its branch head), and publish it to its local repository:
 
 ```shell
 git clone --branch feat/lookup-2.2.0 https://github.com/brainage04/BrainageLib.git ../BrainageLib
