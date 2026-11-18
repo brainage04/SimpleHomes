@@ -8,6 +8,8 @@ import com.mojang.serialization.JsonOps;
 import io.github.brainage04.brainagelib.gametest.CapturedCommandOutput;
 import io.github.brainage04.brainagelib.gametest.GameTestPlayer;
 import io.github.brainage04.brainagelib.help.ServerModHelpRegistry;
+import io.github.brainage04.brainagelib.lookup.CommandRateLimit;
+import io.github.brainage04.brainagelib.lookup.NameLookup;
 import io.netty.util.ReferenceCountUtil;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -1169,7 +1171,8 @@ public final class SimpleHomesGameTests {
                             name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
                             Runnable::run,
                             server::execute,
-                            server::isSameThread));
+                            server::isSameThread,
+                            SimpleHomes.LOGGER));
             try {
                 helper.assertTrue(
                         share(helper, owner.player(), "sharehome base HomesNeverSeen") == 0,
@@ -1225,7 +1228,8 @@ public final class SimpleHomesGameTests {
                                         NameLookup.Status.FOUND, new NameAndId(profile)),
                         pending::set,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         // Closed inside the final step, which runs after this method has returned.
         GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
@@ -1302,7 +1306,8 @@ public final class SimpleHomesGameTests {
                         },
                         Runnable::run,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1347,7 +1352,8 @@ public final class SimpleHomesGameTests {
                         name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
                         Runnable::run,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1383,7 +1389,8 @@ public final class SimpleHomesGameTests {
                         name -> new NameLookup.Answer(NameLookup.Status.FAILED, null),
                         Runnable::run,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
@@ -1409,7 +1416,7 @@ public final class SimpleHomesGameTests {
     /** Every use counts against the player's allowance, cached name or not. */
     public static void shareHomeIsRateLimitedPerPlayer(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
-        ShareRateLimit limit = ShareRateLimit.of(server);
+        CommandRateLimit limit = CommandRateLimit.of(server);
         limit.clear();
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
                 GameTestPlayer guest = GameTestPlayer.join(helper, "HomesGuest")) {
@@ -1449,7 +1456,8 @@ public final class SimpleHomesGameTests {
                         name -> new NameLookup.Answer(NameLookup.Status.NOT_FOUND, null),
                         Runnable::run,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         UUID renamed = UUID.randomUUID();
         UUID holder = UUID.randomUUID();
@@ -1550,7 +1558,8 @@ public final class SimpleHomesGameTests {
                         },
                         Runnable::run,
                         server::execute,
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         HomeData data = HomeData.get(server);
         UUID stranger = UUID.randomUUID();
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
@@ -1870,7 +1879,8 @@ public final class SimpleHomesGameTests {
                             if (server.isSameThread()) runnable.run();
                             else server.execute(runnable);
                         },
-                        server::isSameThread));
+                        server::isSameThread,
+                        SimpleHomes.LOGGER));
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper")) {
             ServerPlayer player = owner.player();
             owner.moveTo(helper, new BlockPos(2, 1, 2));
@@ -2674,7 +2684,7 @@ public final class SimpleHomesGameTests {
      * sharing does, and several uses in one second would otherwise hit the rate limit.
      */
     private static int share(GameTestHelper helper, ServerPlayer player, String command) {
-        ShareRateLimit.clearAll(helper.getLevel().getServer());
+        CommandRateLimit.clearAll(helper.getLevel().getServer());
         return execute(helper, player, command);
     }
 

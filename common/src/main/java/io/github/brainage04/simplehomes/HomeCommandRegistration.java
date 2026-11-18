@@ -11,6 +11,8 @@ import com.mojang.brigadier.context.ParsedCommandNode;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.github.brainage04.brainagelib.help.HelpPage;
+import io.github.brainage04.brainagelib.lookup.CommandRateLimit;
+import io.github.brainage04.brainagelib.lookup.NameLookup;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -230,10 +232,10 @@ public final class HomeCommandRegistration {
      * it prints whenever the button is clicked inside the same second.
      */
     private static boolean charged(MinecraftServer server, ServerPlayer owner) {
-        long wait = ShareRateLimit.of(server).refuse(owner.getUUID());
+        long wait = CommandRateLimit.of(server).refuse(owner.getUUID());
         if (wait == 0) return true;
         SimpleHomes.FEEDBACK.error(
-                owner, "You can use /sharehome again in %s.", ShareRateLimit.describe(wait));
+                owner, "You can use /sharehome again in %s.", CommandRateLimit.describe(wait));
         return false;
     }
 
@@ -295,7 +297,7 @@ public final class HomeCommandRegistration {
         // The answer arrives on the server thread later, so the command's result is 1 (accepted)
         // unless the lookup answered before it returned, as a test's stub does.
         int[] outcome = {1};
-        NameLookup.of(server)
+        NameLookup.of(server, "SimpleHomes name lookup", SimpleHomes.LOGGER)
                 .lookup(
                         typed,
                         answer -> {
@@ -409,7 +411,7 @@ public final class HomeCommandRegistration {
         if (!charged(server, owner)) return 0;
         SimpleHomes.FEEDBACK.neutral(owner, "Looking up %s...", typed);
         int[] outcome = {1};
-        NameLookup.of(server)
+        NameLookup.of(server, "SimpleHomes name lookup", SimpleHomes.LOGGER)
                 .lookup(
                         typed,
                         answer -> {
@@ -519,10 +521,12 @@ public final class HomeCommandRegistration {
      */
     private static int listCandidates(
             MinecraftServer server, ServerPlayer owner, Component header, List<Component> lines) {
-        long wait = ShareRateLimit.listing(server).refuse(owner.getUUID());
+        long wait = CommandRateLimit.of(server, "simplehomes listing").refuse(owner.getUUID());
         if (wait > 0) {
             SimpleHomes.FEEDBACK.error(
-                    owner, "You can ask for the list again in %s.", ShareRateLimit.describe(wait));
+                    owner,
+                    "You can ask for the list again in %s.",
+                    CommandRateLimit.describe(wait));
             return 0;
         }
         SimpleHomes.FEEDBACK.neutral(owner, header);
