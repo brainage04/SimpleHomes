@@ -232,7 +232,7 @@ public final class HomeCommandRegistration {
      * it prints whenever the button is clicked inside the same second.
      */
     private static boolean charged(MinecraftServer server, ServerPlayer owner) {
-        long wait = CommandRateLimit.of(server).refuse(owner.getUUID());
+        long wait = CommandRateLimit.of(server, "simplehomes sharehome").refuse(owner.getUUID());
         if (wait == 0) return true;
         SimpleHomes.FEEDBACK.error(
                 owner, "You can use /sharehome again in %s.", CommandRateLimit.describe(wait));

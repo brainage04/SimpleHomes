@@ -1416,7 +1416,7 @@ public final class SimpleHomesGameTests {
     /** Every use counts against the player's allowance, cached name or not. */
     public static void shareHomeIsRateLimitedPerPlayer(GameTestHelper helper) {
         MinecraftServer server = helper.getLevel().getServer();
-        CommandRateLimit limit = CommandRateLimit.of(server);
+        CommandRateLimit limit = CommandRateLimit.of(server, "simplehomes sharehome");
         limit.clear();
         try (GameTestPlayer owner = GameTestPlayer.join(helper, "HomesKeeper");
                 GameTestPlayer guest = GameTestPlayer.join(helper, "HomesGuest")) {
@@ -2684,7 +2684,9 @@ public final class SimpleHomesGameTests {
      * sharing does, and several uses in one second would otherwise hit the rate limit.
      */
     private static int share(GameTestHelper helper, ServerPlayer player, String command) {
-        CommandRateLimit.clearAll(helper.getLevel().getServer());
+        // Only this mod's two allowances: clearAll would wipe every other mod's as well.
+        CommandRateLimit.of(helper.getLevel().getServer(), "simplehomes sharehome").clear();
+        CommandRateLimit.of(helper.getLevel().getServer(), "simplehomes listing").clear();
         return execute(helper, player, command);
     }
 
