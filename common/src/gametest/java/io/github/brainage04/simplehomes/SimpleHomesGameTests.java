@@ -1432,6 +1432,11 @@ public final class SimpleHomesGameTests {
                     execute(helper, player, "sharehome base " + guest.player().getScoreboardName())
                             == 0,
                     "A second use in the same second must be refused");
+            // The use must land on this mod's own allowance: a revert to of(server) would charge the
+            // server-wide one, which /spawnshare also uses, and this handle would stay clean.
+            helper.assertTrue(
+                    limit.refuse(player.getUUID()) > 0,
+                    "The use must be charged to this mod's own allowance");
             String message = owner.messageTexts().getFirst();
             helper.assertTrue(
                     message.startsWith("[SimpleHomes] You can use /sharehome again in ")
