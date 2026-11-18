@@ -22,8 +22,8 @@ class NameLookupTest {
     }
 
     /**
-     * The lookup and its limiter live in BrainageLib, so every mod on the server shares one lookup thread
-     * and one share of Mojang's limit. A copy here would quietly take a second share.
+     * The lookup and its limiter live in BrainageLib, so every mod on the server shares one lookup
+     * thread and one share of Mojang's limit. A copy here would quietly take a second share.
      */
     @Test
     void theLookupAndItsLimiterAreNotCopiedHere() {
