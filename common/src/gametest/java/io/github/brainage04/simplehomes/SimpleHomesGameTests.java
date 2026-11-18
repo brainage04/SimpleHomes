@@ -1433,7 +1433,7 @@ public final class SimpleHomesGameTests {
                             == 0,
                     "A second use in the same second must be refused");
             // A revert to of(server) would charge the library's unnamed allowance, which this
-            // handle does not read, so only this assertion catches the revert.
+            // handle does not read, so this step would still pass; the assertion below names it.
             helper.assertTrue(
                     limit.refuse(player.getUUID()) > 0,
                     "The use must be charged to this mod's own allowance");
