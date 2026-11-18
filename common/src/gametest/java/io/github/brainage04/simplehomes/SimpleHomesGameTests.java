@@ -1432,8 +1432,8 @@ public final class SimpleHomesGameTests {
                     execute(helper, player, "sharehome base " + guest.player().getScoreboardName())
                             == 0,
                     "A second use in the same second must be refused");
-            // The use must land on this mod's own allowance: a revert to of(server) would charge the
-            // server-wide one, which /spawnshare also uses, and this handle would stay clean.
+            // A revert to of(server) would charge the library's unnamed allowance, which this
+            // handle does not read, so the step would still pass.
             helper.assertTrue(
                     limit.refuse(player.getUUID()) > 0,
                     "The use must be charged to this mod's own allowance");
@@ -2686,10 +2686,10 @@ public final class SimpleHomesGameTests {
 
     /**
      * Runs a /sharehome command with the player's allowance cleared first: these tests check what
-     * sharing does, and several uses in one second would otherwise hit the rate limit.
+     * sharing does, and several uses in one second would otherwise hit the rate limit. Only this
+     * mod's two allowances are cleared, because clearAll would wipe every other mod's as well.
      */
     private static int share(GameTestHelper helper, ServerPlayer player, String command) {
-        // Only this mod's two allowances: clearAll would wipe every other mod's as well.
         CommandRateLimit.of(helper.getLevel().getServer(), "simplehomes sharehome").clear();
         CommandRateLimit.of(helper.getLevel().getServer(), "simplehomes listing").clear();
         return execute(helper, player, command);
