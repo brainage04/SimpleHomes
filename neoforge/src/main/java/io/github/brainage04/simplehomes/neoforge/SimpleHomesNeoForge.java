@@ -11,16 +11,16 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 @Mod(SimpleHomes.MOD_ID)
 public final class SimpleHomesNeoForge {
-	public SimpleHomesNeoForge(IEventBus modEventBus) {
-		modEventBus.addListener(SimpleHomesNeoForge::initialize);
-		NeoForge.EVENT_BUS.addListener(SimpleHomesNeoForge::registerCommands);
-	}
+    public SimpleHomesNeoForge(IEventBus modEventBus) {
+        modEventBus.addListener(SimpleHomesNeoForge::initialize);
+        NeoForge.EVENT_BUS.addListener(SimpleHomesNeoForge::registerCommands);
+    }
 
-	private static void initialize(FMLCommonSetupEvent event) {
-		SimpleHomes.initialize(FMLPaths.CONFIGDIR.get());
-	}
+    private static void initialize(FMLCommonSetupEvent event) {
+        SimpleHomes.initialize(FMLPaths.CONFIGDIR.get());
+    }
 
-	private static void registerCommands(RegisterCommandsEvent event) {
-		HomeCommandRegistration.register(event.getDispatcher());
-	}
+    private static void registerCommands(RegisterCommandsEvent event) {
+        HomeCommandRegistration.register(event.getDispatcher());
+    }
 }
