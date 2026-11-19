@@ -1117,8 +1117,7 @@ public final class SimpleHomesGameTests {
                     "Two owners of that name must be refused");
             helper.assertTrue(
                     visitor.position().equals(before), "A refused /homeof must not move the guest");
-            assertMessage(
-                    helper, guest, "[SimpleHomes] Select exactly one home owner.", 0xFF5555);
+            assertMessage(helper, guest, "[SimpleHomes] Select exactly one home owner.", 0xFF5555);
         }
         helper.succeed();
     }
