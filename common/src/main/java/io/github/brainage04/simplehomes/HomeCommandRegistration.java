@@ -27,6 +27,9 @@ import net.minecraft.server.players.UserNameToIdResolver;
 public final class HomeCommandRegistration {
     private static final Pattern VALID_NAME = Pattern.compile("[a-z0-9_-]{1,32}");
 
+    /** The word /sharehome uses for taking access away, so it cannot also be a home name. */
+    private static final String RESERVED_NAME = "revoke";
+
     private HomeCommandRegistration() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -51,13 +54,6 @@ public final class HomeCommandRegistration {
                 literal("sharehome")
                         .then(
                                 literal("revoke")
-                                        .then(
-                                                argument("players", EntityArgument.players())
-                                                        .executes(
-                                                                context ->
-                                                                        changeAccess(
-                                                                                context, true,
-                                                                                "revoke")))
                                         .then(
                                                 ownHomeName()
                                                         .then(
@@ -108,6 +104,14 @@ public final class HomeCommandRegistration {
         if (player == null) return 0;
         String name = normalizedName(StringArgumentType.getString(context, "name"), player);
         if (name == null) return 0;
+        if (name.equals(RESERVED_NAME)) {
+            SimpleHomes.FEEDBACK.error(
+                    player,
+                    "The name '%s' is reserved by /sharehome %s. Choose another name.",
+                    RESERVED_NAME,
+                    RESERVED_NAME);
+            return 0;
+        }
         HomeData.SetResult result =
                 HomeData.get(context.getSource().getServer())
                         .setHome(
