@@ -59,7 +59,7 @@ public record HomeLocation(
     /**
      * Where the player lands in {@code level}: the exact position, or for a home that holds only a
      * block, on top of the floor in that block, by vanilla's floor-height rule
-     * (BlockGetter.getBlockFloorHeight, BlockGetter.java:96-110), as /spawn in SpawnCommands does.
+     * (BlockGetter.getBlockFloorHeight, BlockGetter.java:96-110).
      */
     public Vec3 destination(BlockGetter level) {
         return position.map(exact -> exact, block -> onFloorOf(level, block));

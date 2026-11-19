@@ -1088,6 +1088,41 @@ public final class SimpleHomesGameTests {
         helper.succeed();
     }
 
+    public static void homeofRefusesTwoOwnersWithTheSameName(GameTestHelper helper) {
+        // Two players whose cached name is the same: one was renamed and another took the name.
+        // Joining both puts each UUID in the name cache under that one name
+        // (PlayerList.placeNewPlayer, PlayerList.java:149-152).
+        try (GameTestPlayer guest = GameTestPlayer.join(helper, "HomesTwinGuest");
+                GameTestPlayer first = GameTestPlayer.join(helper, "HomesTwin");
+                GameTestPlayer second = GameTestPlayer.join(helper, "HomesTwin")) {
+            ServerPlayer visitor = guest.player();
+            guest.moveTo(helper, new BlockPos(1, 1, 1));
+            for (GameTestPlayer owner : List.of(first, second)) {
+                owner.moveTo(helper, new BlockPos(3, 1, 3));
+                helper.assertTrue(
+                        execute(helper, owner.player(), "sethome base") == 1,
+                        "/sethome must create the home");
+                helper.assertTrue(
+                        execute(
+                                        helper,
+                                        owner.player(),
+                                        "sharehome base " + visitor.getScoreboardName())
+                                == 1,
+                        "Sharing with an online player by name must work");
+            }
+            guest.clearMessages();
+            Vec3 before = visitor.position();
+            helper.assertTrue(
+                    execute(helper, visitor, "homeof HomesTwin base") == 0,
+                    "Two owners of that name must be refused");
+            helper.assertTrue(
+                    visitor.position().equals(before), "A refused /homeof must not move the guest");
+            assertMessage(
+                    helper, guest, "[SimpleHomes] Select exactly one home owner.", 0xFF5555);
+        }
+        helper.succeed();
+    }
+
     public static void playerOnlyCommandsAnswerNonPlayersThroughModFeedback(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
         for (String command : List.of("sethome base", "home base", "sharehome base @a")) {

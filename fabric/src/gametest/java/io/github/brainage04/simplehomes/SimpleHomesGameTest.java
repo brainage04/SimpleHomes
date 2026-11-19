@@ -65,6 +65,11 @@ public final class SimpleHomesGameTest {
     }
 
     @GameTest
+    public void homeofRefusesTwoOwnersWithTheSameName(GameTestHelper helper) {
+        SimpleHomesGameTests.homeofRefusesTwoOwnersWithTheSameName(helper);
+    }
+
+    @GameTest
     public void homesSavedWithOnlyABlockLandOnItsFloor(GameTestHelper helper) {
         SimpleHomesGameTests.homesSavedWithOnlyABlockLandOnItsFloor(helper);
     }
