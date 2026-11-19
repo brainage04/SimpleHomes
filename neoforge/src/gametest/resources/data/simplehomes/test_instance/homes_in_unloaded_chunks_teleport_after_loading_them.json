@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 1000000,
+  "type": "minecraft:function",
+  "function": "simplehomes:homes_in_unloaded_chunks_teleport_after_loading_them"
+}

@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 1000000,
+  "type": "minecraft:function",
+  "function": "simplehomes:a_home_inside_the_ground_of_an_unloaded_chunk_still_fails"
+}
