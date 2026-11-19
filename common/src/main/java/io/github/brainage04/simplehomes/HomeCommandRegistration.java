@@ -103,9 +103,9 @@ public final class HomeCommandRegistration {
         return changeAccess(context, false, StringArgumentType.getString(context, "name"));
     }
 
-    private static int setHome(CommandContext<CommandSourceStack> context)
-            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
+    private static int setHome(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = SimpleHomes.FEEDBACK.requirePlayer(context.getSource());
+        if (player == null) return 0;
         String name = normalizedName(StringArgumentType.getString(context, "name"), player);
         if (name == null) return 0;
         HomeData.SetResult result =
@@ -127,9 +127,9 @@ public final class HomeCommandRegistration {
         return 1;
     }
 
-    private static int teleportHome(CommandContext<CommandSourceStack> context)
-            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
+    private static int teleportHome(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = SimpleHomes.FEEDBACK.requirePlayer(context.getSource());
+        if (player == null) return 0;
         String name = normalizedName(StringArgumentType.getString(context, "name"), player);
         if (name == null) return 0;
         HomeLocation home =
@@ -145,7 +145,8 @@ public final class HomeCommandRegistration {
 
     private static int teleportOtherHome(CommandContext<CommandSourceStack> context)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer guest = context.getSource().getPlayerOrException();
+        ServerPlayer guest = SimpleHomes.FEEDBACK.requirePlayer(context.getSource());
+        if (guest == null) return 0;
         String name = normalizedName(StringArgumentType.getString(context, "name"), guest);
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
@@ -174,7 +175,8 @@ public final class HomeCommandRegistration {
     private static int changeAccess(
             CommandContext<CommandSourceStack> context, boolean grant, String rawName)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer owner = context.getSource().getPlayerOrException();
+        ServerPlayer owner = SimpleHomes.FEEDBACK.requirePlayer(context.getSource());
+        if (owner == null) return 0;
         String name = normalizedName(rawName, owner);
         if (name == null) return 0;
         HomeData data = HomeData.get(context.getSource().getServer());
@@ -203,18 +205,20 @@ public final class HomeCommandRegistration {
         return changed;
     }
 
+    // A completion request from a source that is not a player gets no suggestions and no message:
+    // requirePlayer would answer a Tab press with chat.
     private static CompletableFuture<Suggestions> suggestOwnHomes(
-            CommandContext<CommandSourceStack> context, SuggestionsBuilder builder)
-            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
+            CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        ServerPlayer player = context.getSource().getPlayer();
+        if (player == null) return Suggestions.empty();
         return SharedSuggestionProvider.suggest(
                 HomeData.get(context.getSource().getServer()).homeNames(player.getUUID()), builder);
     }
 
     private static CompletableFuture<Suggestions> suggestGuests(
-            CommandContext<CommandSourceStack> context, SuggestionsBuilder builder)
-            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer owner = context.getSource().getPlayerOrException();
+            CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        ServerPlayer owner = context.getSource().getPlayer();
+        if (owner == null) return Suggestions.empty();
         String name = StringArgumentType.getString(context, "name").toLowerCase(Locale.ROOT);
         UserNameToIdResolver names = context.getSource().getServer().services().nameToIdCache();
         return SharedSuggestionProvider.suggest(
