@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 1000000,
+  "type": "minecraft:function",
+  "function": "simplehomes:a_player_who_leaves_during_the_load_gives_the_ticket_back"
+}

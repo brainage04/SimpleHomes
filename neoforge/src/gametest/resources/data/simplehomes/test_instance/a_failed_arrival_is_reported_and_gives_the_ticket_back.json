@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 1000000,
+  "type": "minecraft:function",
+  "function": "simplehomes:a_failed_arrival_is_reported_and_gives_the_ticket_back"
+}
