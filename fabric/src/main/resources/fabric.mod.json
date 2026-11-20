@@ -7,7 +7,8 @@
 	"authors": ["brainage04"],
 	"contact": {
 		"homepage": "https://github.com/brainage04/SimpleHomes",
-		"sources": "https://github.com/brainage04/SimpleHomes"
+		"sources": "https://github.com/brainage04/SimpleHomes",
+		"issues": "https://github.com/brainage04/SimpleHomes/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/simplehomes/icon.png",
