@@ -10,10 +10,10 @@ The workflow starts on a push of a tag named `v*`, and on nothing else. The tag 
 
 The preparation job runs `./gradlew clean build` and picks out:
 
-- `simplehomes-<mod_version>.jar`, the Fabric release, from `build/libs`;
+- `simplehomes-<mod_version>.jar`, the Fabric release, from `build/libs`.
 - the NeoForge release, as the one file in `build/libs` matching `simplehomes-neoforge-*.jar`. If the pattern matches no file or more than one, the release fails.
 
-Both JARs are attached to a GitHub release titled `SimpleHomes vX.Y.Z`. The release body is the annotated tag message; when the tag carries no message, GitHub-generated notes are used instead. A tag containing a hyphen, such as `v1.2.0-rc1`, is marked as a prerelease.
+Both JARs are attached to a GitHub release titled `SimpleHomes vX.Y.Z`. The release body is the annotated tag message. When the tag carries no message, GitHub-generated notes are used instead. A tag containing a hyphen, such as `v1.2.0-rc1`, is marked as a prerelease.
 
 ## Destinations
 
@@ -27,7 +27,7 @@ After preparation the workflow runs one job per destination:
 | `curseforge-fabric` | the Fabric JAR to CurseForge |
 | `curseforge-neoforge` | the NeoForge JAR to CurseForge |
 
-The two Modrinth jobs publish to one project. The Fabric job resolves the project first; the NeoForge job waits for it and reuses its project id. The NeoForge version is uploaded as `<mod_version>-neoforge`, so the two loader versions of a release do not collide as Modrinth version numbers.
+The two Modrinth jobs publish to one project. The Fabric job resolves the project first. The NeoForge job waits for it and reuses its project id. The NeoForge version is uploaded as `<mod_version>-neoforge`, so the two loader versions of a release do not collide as Modrinth version numbers.
 
 The CurseForge jobs upload with the project slug `simplehomes` and the project id from the `CURSEFORGE_PROJECT_ID` variable.
 
@@ -59,14 +59,14 @@ A failed Modrinth project or icon synchronization blocks the version upload. The
 
 ## Project metadata
 
-The Modrinth project is filled from the repository, and the Fabric job refreshes it on every release:
+The Fabric job refreshes part of the Modrinth project on every release, and sets the rest only when it creates the project.
 
-- `README.md` is the project body.
-- `fabric/src/main/resources/fabric.mod.json` provides the title, description, licence and contact links; a missing link falls back to the GitHub repository URL.
-- `.modrinth/project.json` overrides the slug, categories and side support.
-- `.modrinth/neoforge-dependencies.json` provides the dependencies of the NeoForge version.
-- `common/src/main/resources/assets/simplehomes/icon.png` is the project icon.
+Refreshed on every release: the summary, the body, the issues, source, wiki and licence links, and the side support. The body is `README.md`. A missing source link falls back to the GitHub repository URL, a missing issues or wiki link to that URL plus `/issues` or `/wiki`, and the licence link to `<repository>/blob/HEAD/LICENSE`.
 
-The `depends`, `recommends`, `suggests`, `conflicts` and `breaks` entries of `fabric.mod.json` become Modrinth version dependencies, taking each mod id as a Modrinth slug; `minecraft`, `java` and `fabricloader` are left out. A `dependency_overrides` entry in `.modrinth/project.json` can remap one of them with `project_id`, `project_slug` or `dependency_type`, or drop it with `skip`.
+Set only when the project is created: the slug, the title, the licence id, the categories, the additional categories, the Discord link, the donation links and the project type. `.modrinth/project.json` sets the primary category `utility` and no additional category. A rename, a licence change or a new category therefore needs an edit on Modrinth itself, because the next release does not send it.
+
+The icon is `common/src/main/resources/assets/simplehomes/icon.png`. It is replaced only when the current Modrinth icon URL does not already contain the SHA-1 of that file.
+
+The `depends`, `recommends`, `suggests`, `conflicts` and `breaks` entries of `fabric.mod.json` become Modrinth version dependencies, taking each mod id as a Modrinth slug. `minecraft`, `java` and `fabricloader` are left out. A `dependency_overrides` entry in `.modrinth/project.json` can remap one of them with `project_id`, `project_slug` or `dependency_type`, or drop it with `skip`. `.modrinth/neoforge-dependencies.json` provides the dependencies of the NeoForge version.
 
 `docs/RELEASE.md` covers cutting the tag.
