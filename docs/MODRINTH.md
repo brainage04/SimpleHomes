@@ -61,12 +61,16 @@ A failed Modrinth project or icon synchronization blocks the version upload. The
 
 The Fabric job refreshes part of the Modrinth project on every release, and sets the rest only when it creates the project.
 
-Refreshed on every release: the summary, the body, the issues, source, wiki and licence links, and the side support. The body is `README.md`. A missing source link falls back to the GitHub repository URL, a missing issues or wiki link to that URL plus `/issues` or `/wiki`, and the licence link to `<repository>/blob/HEAD/LICENSE`.
+Refreshed on every release: the summary, the body, the issues, source, wiki and licence links, and the side support. The body is `README.md`. The summary is the GitHub repository description, then `.modrinth/project.json`, then the `fabric.mod.json` description. A missing source link falls back to the GitHub repository URL, a missing issues or wiki link to that URL plus `/issues` or `/wiki`, and the licence link to `<repository>/blob/HEAD/LICENSE`.
 
 Set only when the project is created: the slug, the title, the licence id, the categories, the additional categories, the Discord link, the donation links and the project type. `.modrinth/project.json` sets the primary category `utility` and no additional category. A rename, a licence change or a new category therefore needs an edit on Modrinth itself, because the next release does not send it.
 
 The icon is `common/src/main/resources/assets/simplehomes/icon.png`. It is replaced only when the current Modrinth icon URL does not already contain the SHA-1 of that file.
 
 The `depends`, `recommends`, `suggests`, `conflicts` and `breaks` entries of `fabric.mod.json` become Modrinth version dependencies, taking each mod id as a Modrinth slug. `minecraft`, `java` and `fabricloader` are left out. A `dependency_overrides` entry in `.modrinth/project.json` can remap one of them with `project_id`, `project_slug` or `dependency_type`, or drop it with `skip`. `.modrinth/neoforge-dependencies.json` provides the dependencies of the NeoForge version.
+
+## Release notes
+
+The Modrinth version changelog is the same release body the GitHub release uses, because the workflow passes that body to every destination.
 
 `docs/RELEASE.md` covers cutting the tag.
