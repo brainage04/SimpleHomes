@@ -55,7 +55,7 @@ Variables:
 - The Modrinth version number already present on the project: that upload is skipped, because the project's version list is checked first.
 - The GitHub release for the tag already exists: it is edited and its assets are replaced instead of creating a second release.
 
-A failed Modrinth project or icon synchronization does not block the version upload. The job publishes the version and then fails, so the stale project metadata stays visible.
+A failed Modrinth project or icon synchronization blocks the version upload. The project id the upload needs is exported only when synchronization succeeded, so the job fails at the version step and the stale project metadata stays visible.
 
 ## Project metadata
 
